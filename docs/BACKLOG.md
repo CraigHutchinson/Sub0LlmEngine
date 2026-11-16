@@ -5,8 +5,8 @@ milestone. Done items are kept short here and leave in the next tidy-up (git kee
 
 ## By milestone
 
-* **M1 serving basics** (in progress): pool watermark in `status --json`; a loading instance counts as present; named
-  profiles with evidence; `kvUnifiedPerSlot` knob; start from requirements (*Start from requirements*); default build
+* **M1 serving basics** (in progress; done: pool watermark in `status --json`, loading instance counts as present,
+  named profiles with evidence, `kvUnifiedPerSlot` knob). Next: start from requirements (*Start from requirements*); default build
   moved to upstream after re-measuring; pool-exhaustion spike (*KV memory model*); B = 3..16 at depth >= 16k
   (*Tuning map*); choose and record the final serving configuration in RESULTS.md.
 * **M2 supervision and arbitration**: named instances, restart on crash, log rotation, one lock for instances and

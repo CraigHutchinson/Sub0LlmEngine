@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 
 from . import backends, config, registry
@@ -20,8 +21,10 @@ LOG_FILE = os.path.join(config.STATE_DIR, "engine.log")
 STATE_FILE = os.path.join(config.STATE_DIR, "engine.json")
 LOCK_FILE = os.path.join(config.STATE_DIR, "bench.lock")  # the bench's GPU lock (bench.GpuLock)
 FORMAT = "sub0llmengine.engine.v1"
+# Pool watermark levels: the share of the KV pool held by busy slots (see pool()).
+POOL_LEVELS = [(0.95, "critical"), (0.85, "warning"), (0.70, "notice")]
 # Settings that change what a client gets (a running engine with other values is "not the configured engine").
-SERVING_KEYS = ["model", "alias", "host", "port", "slots", "ctxCheckpoints", "cacheRam", "extraArgs"]
+SERVING_KEYS = ["model", "alias", "host", "port", "slots", "kvUnifiedPerSlot", "ctxCheckpoints", "cacheRam", "extraArgs"]
 
 
 def fetch(url, timeout=3):
@@ -32,13 +35,40 @@ def fetch(url, timeout=3):
         return None
 
 
+def probe(u, timeout=3):
+    """(HTTP status, body) for a GET, or (None, None) when nothing answers."""
+    try:
+        with urllib.request.urlopen(u, timeout=timeout) as r:
+            return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+    except Exception:
+        return None, None
+
+
 def url(cfg):
     host = cfg.get("host", "127.0.0.1")
     return "http://%s:%s" % ("127.0.0.1" if host in ("0.0.0.0", "::") else host, cfg.get("port", 8092))
 
 
+def health(cfg):
+    """"ok" when the server answers, "loading" while it loads the model (llama-server answers 503), else None."""
+    code, _ = probe(url(cfg) + "/health")
+    if code == 200:
+        return "ok"
+    return "loading" if code == 503 else None
+
+
 def running(cfg):
-    return fetch(url(cfg) + "/health") is not None
+    return health(cfg) == "ok"
+
+
+def starting(cfg):
+    """A server this tool started is loading: it answers 503, or its process lives but does not listen yet."""
+    if health(cfg) == "loading":
+        return True
+    p, st = pid(), state()
+    return bool(p and st and alive(p) and st.get("url") == url(cfg) + "/v1")
 
 
 def command(cfg):
@@ -119,6 +149,19 @@ def start(cfg, wait=True, say=print):
         else:
             say("engine: already answering at %s" % url(cfg))
         return 0
+    if starting(cfg):
+        say("engine: already starting at %s (loading the model)" % url(cfg))
+        if not wait:
+            return 0
+        for _ in range(360):
+            if running(cfg):
+                status(cfg, say)
+                return 0
+            if not starting(cfg):
+                say("engine: stopped while loading; see %s" % LOG_FILE)
+                return 1
+            time.sleep(1)
+        return 1
     owner = benchLockOwner()
     if owner:
         say("engine: a bench holds the GPU (%s, pid %s); start the engine when it finishes" % (LOCK_FILE, owner))
@@ -204,7 +247,31 @@ def describe(cfg):
     slots = slots if isinstance(slots, list) else []
     nctx = props.get("default_generation_settings", {}).get("n_ctx")
     return {"url": u + "/v1", "alias": props.get("model_alias") or cfg.get("alias"), "slots": len(slots) or cfg.get("slots"),
-            "busy": sum(1 for s in slots if s.get("is_processing")), "nCtxPerSlot": nctx, "pid": pid()}
+            "busy": sum(1 for s in slots if s.get("is_processing")), "nCtxPerSlot": nctx, "pid": pid(), "slotList": slots}
+
+
+def pool(cfg, slots):
+    """The KV pool watermark from llama-server's /slots (it reports none itself).
+
+    With unified KV all slots share one pool of `ctx` token cells; otherwise each slot has its own `n_ctx` and the pool is
+    their sum. A slot's cached tokens (`n_prompt_tokens`: prompt plus generated) are "used" while it processes and
+    "reclaimable" when idle (the server clears idle slots when the pool runs short). A prefix shared by two slots is
+    counted twice, so the figures err on the safe side. level: ok / notice (70 % used) / warning (85 %) / critical (95 %)."""
+    if not slots:
+        return None
+    held = [int(s.get("n_prompt_tokens") or 0) for s in slots]
+    busy = [s.get("is_processing", False) for s in slots]
+    if cfg.get("kvUnified", True):
+        size = int(cfg.get("ctx") or 0) or max(int(s.get("n_ctx") or 0) for s in slots)
+    else:
+        size = sum(int(s.get("n_ctx") or 0) for s in slots)
+    used = sum(h for h, b in zip(held, busy) if b)
+    reclaimable = sum(h for h, b in zip(held, busy) if not b)
+    share = used / size if size else 0.0
+    level = next((name for limit, name in POOL_LEVELS if share >= limit), "ok")
+    return {"size": size, "used": used, "reclaimable": reclaimable, "free": max(0, size - used), "usedShare": round(share, 3),
+            "busySlots": sum(busy), "slots": len(slots), "level": level,
+            "perSlot": [{"id": s.get("id"), "tokens": h, "busy": b, "nCtx": s.get("n_ctx")} for s, h, b in zip(slots, held, busy)]}
 
 
 def info(cfg):
@@ -217,6 +284,9 @@ def info(cfg):
     if d:
         out.update({k: d[k] for k in ("alias", "slots", "busy", "nCtxPerSlot", "pid")})
         out["squadCtx"] = cfg.get("squadCtx") or d["nCtxPerSlot"]
+        out["pool"] = pool(st["config"] if st else cfg, d["slotList"])
+    else:
+        out["loading"] = starting(cfg)
     if st and d:
         out.update({"startedByThisTool": True, "startedAt": st.get("startedAt"), "build": st.get("build"), "model": st.get("model"),
                     "config": st.get("config"), "command": st.get("command"), "matchesConfig": not differences(cfg, st["config"]),
@@ -231,7 +301,7 @@ def info(cfg):
 def status(cfg, say=print):
     d = describe(cfg)
     if not d:
-        say("engine: not answering at %s" % url(cfg))
+        say("engine: %s at %s" % ("loading the model" if starting(cfg) else "not answering", url(cfg)))
         return 1
     say("engine: %(url)s  model=%(alias)s  slots=%(slots)s (busy %(busy)s)  n_ctx per slot=%(nCtxPerSlot)s  pid=%(pid)s" % d)
     st = state()
@@ -239,6 +309,9 @@ def status(cfg, say=print):
         diff = differences(cfg, st["config"])
         say("        %s  %s  started %s%s" % (st["model"].get("id") or st["model"].get("path"), st.get("build"), st.get("startedAt"),
                                              ("  DIFFERS from the configuration: " + json.dumps(diff)) if diff else ""))
+    pl = pool(st["config"] if st else cfg, d["slotList"])
+    if pl:
+        say("pool:   %(used)d of %(size)d tokens held by %(busySlots)d busy slot(s), %(free)d free, %(reclaimable)d reclaimable from idle slots (%(level)s)" % pl)
     say("squad:  --engine %s=%s,model=%s,ctx=%s,slots=%s" % (d["alias"], d["url"], d["alias"], cfg.get("squadCtx") or d["nCtxPerSlot"], d["slots"]))
     return 0
 

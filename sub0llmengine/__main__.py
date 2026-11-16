@@ -6,6 +6,7 @@
                                                  needs (sub0llmengine.engine.v1): endpoint, slots, context per slot,
                                                  model id and path, build, and whether it matches the configuration
   python -m sub0llmengine model [REF]            resolve a model (alias, registry id or file): id, path, registry facts
+  python -m sub0llmengine profiles [--json]      named profiles (config/profiles/), their evidence and whether it still holds
   python -m sub0llmengine machine                this machine's id and facts
   python -m sub0llmengine sweep --ncmoe 30,32 --ctx 65536,131072 --depth 2048,8192 --B 1,4,8
                                                  bench every combination; every point (failures too) goes to bench/<machine>.jsonl
@@ -20,14 +21,15 @@
                                                  restore it, and check the output; appends to out/spike/reconfigure.jsonl
   python -m sub0llmengine serve [--port 8781]    the tuning page: heatmaps over the history, pick a configuration, queue sweeps
 
-Common option: --config FILE (a config layer on top of config/engine.defaults.json and engine.local.json).
+Common options: --config FILE (a config layer on top of config/engine.defaults.json and engine.local.json);
+--profile NAME (config/profiles/NAME.json as a layer, below any --config).
 """
 import argparse
 import json
 import os
 import sys
 
-from . import axes, backends, bench, config, machine, process, registry, selection, spike, tuneserver
+from . import axes, backends, bench, config, machine, process, profiles, registry, selection, spike, tuneserver
 
 
 def csv(s, conv=int):
@@ -37,9 +39,12 @@ def csv(s, conv=int):
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="sub0llmengine", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", help="extra config layer (saved changes go here)")
+    ap.add_argument("--profile", help="a named profile from config/profiles/ (see `profiles`)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     cf = sub.add_parser("config")
     cf.add_argument("--json", action="store_true", help="one JSON document: configuration, layers, model, build, command")
+    pf = sub.add_parser("profiles")
+    pf.add_argument("--json", action="store_true")
     md = sub.add_parser("model")
     md.add_argument("ref", nargs="?", help="alias, registry id or file path (default: the configured model)")
     sub.add_parser("machine")
@@ -86,6 +91,8 @@ def main(argv=None):
     sv = sub.add_parser("serve")
     sv.add_argument("--port", type=int, default=8781)
     a = ap.parse_args(argv)
+    if a.profile:
+        config.addLayer(profiles.path(a.profile))
     if a.config:
         config.addLayer(a.config)
     cfg = config.load()
@@ -97,6 +104,19 @@ def main(argv=None):
         else:
             print(json.dumps(cfg, indent=2))
             print(" ".join(process.command(cfg)))
+    elif a.cmd == "profiles":
+        hist = bench.history()
+        found = [profiles.check(n, history=hist) for n in profiles.names()]
+        if a.json:
+            print(json.dumps(found, indent=2))
+        for p in ([] if a.json else found):
+            print(p["name"] + ("  STALE" if p["stale"] else ""))
+            print("  " + p["comment"])
+            print("  " + " ".join("%s=%s" % kv for kv in p["settings"].items()))
+            for prob in p["problems"]:
+                print("  ! " + prob)
+        if not found:
+            print("no profiles in " + profiles.DIR)
     elif a.cmd == "model":
         print(json.dumps(process.model(cfg, a.ref), indent=2))
     elif a.cmd == "machine":

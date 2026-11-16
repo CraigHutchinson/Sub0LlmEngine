@@ -1,5 +1,5 @@
 {
-  "_comment": "Qwen3.6-35B-A3B, 4 concurrent requests, at least 8k context each. Best measured point at B=4, depth 8192 on the reference machine (RTX 5070 Laptop 8 GB, llama.cpp b9413): 88.6 tok/s decode across the 4 (22.2 per request). ctx is the total KV shared by the slots: 65536 / 4 = 16384 per slot. Use: python -m sub0llmengine --config config/profiles/qwen36-35b-b4-ctx8k.json start",
+  "_comment": "Qwen3.6-35B-A3B, 4 concurrent requests, at least 8k context each (65536 total KV shared by the slots: 16384 per slot). Use: python -m sub0llmengine --profile qwen36-35b-b4-ctx8k start",
   "model": "qwen36-35b-a3b",
   "alias": "qwen35",
   "slots": 4,
@@ -14,5 +14,24 @@
   "cacheTypeV": "q8_0",
   "flashAttn": "on",
   "kvUnified": true,
-  "mmap": false
+  "mmap": false,
+  "_evidence": {
+    "build": "llama.cpp b9413-2-g112065977",
+    "model": "hf/mudler/Qwen3.6-35B-A3B-APEX-GGUF@unpinned-20260520#Qwen3.6-35B-A3B-APEX-I-Compact.gguf",
+    "records": [
+      "2026-11-16T13:42:02"
+    ],
+    "workload": {
+      "B": 4,
+      "depth": 8192,
+      "ntg": 128
+    },
+    "measured": {
+      "decodeTotal": 88.6,
+      "decodePerSequence": 22.2,
+      "prefill": 865
+    },
+    "note": "best measured point at B=4, depth 8192 on the reference machine; one pass"
+  },
+  "binDir": "D:/tools/llamacpp/vendor/llama.cpp/build/bin/Release"
 }

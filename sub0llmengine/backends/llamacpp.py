@@ -31,6 +31,8 @@ KNOBS = [
     dict(id="flashAttn", flag="-fa", type="enum", values=["on", "off", "auto"], change="load", identity=True, affects=["speed", "context"]),
     dict(id="kvUnified", flag="-kvu", type="bool", change="load", identity=True, affects=["concurrency"]),
     dict(id="mmap", flag="--no-mmap", type="bool", change="load", identity=True, affects=[], note="load time and RAM, not speed"),
+    dict(id="kvUnifiedPerSlot", flag="--kv-unified-per-slot", type="int", unit="tokens", min=0, change="load", affects=["context"],
+         note="context cap per slot inside the shared KV pool (newer builds only); unset: a slot may use the whole pool"),
     dict(id="gpuLayers", flag="-ngl", type="int", unit="layers", min=0, change="load", identity=True, affects=["speed", "context"]),
     dict(id="nPredict", field="n_predict", type="int", unit="tokens", min=-1, change="request", affects=[], note="output budget"),
     dict(id="idSlot", field="id_slot", type="int", min=-1, change="request", affects=[], note="pin a request to a slot (its KV)"),
@@ -95,6 +97,11 @@ class LlamaCpp(Backend):
             cmd += ["-ctxcp", str(cfg["ctxCheckpoints"])]
         if cfg.get("cacheRam") is not None:
             cmd += ["-cram", str(cfg["cacheRam"])]
+        if cfg.get("kvUnifiedPerSlot"):
+            if not self.hasFlag(cfg, "--kv-unified-per-slot"):
+                raise SystemExit("kvUnifiedPerSlot is set but this build has no --kv-unified-per-slot (upstream since 2026-08, "
+                                 "ggml-org/llama.cpp#24124): use a newer binDir or remove the key")
+            cmd += ["--kv-unified-per-slot", str(cfg["kvUnifiedPerSlot"])]
         return cmd + [str(x) for x in cfg.get("extraArgs", [])]
 
     def benchCommand(self, cfg, modelPath, depth, ntg, bs):

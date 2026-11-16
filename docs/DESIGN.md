@@ -69,9 +69,9 @@ services, frontier models) are asked first.
 | `sub0llmengine.axes.v1` | `axes`, `/api/axes` | axes, workload, knobs (flag, range, change at load/request, KV transfer) | built |
 | Bench record | `bench.py` | machine, backend, model id, build, params, depth, ntg, B, throughput, outcome, VRAM | built |
 | `sub0llmengine.measured-selection.v1` | the page's export | identity, engineConfig, consumerBudget, evidence, activation | built |
-| `sub0llmengine.engine.v1` | `start/status --json` | endpoint, slots, context, model id and path, build, config, matchesConfig, bench lock, pool | built; pool M1 |
-| Profile | `config/profiles/*.json` | a config layer plus `_evidence` (records, build, date) | M1 |
-| Pool watermark | `status --json` `pool`; gateway header (M3) | size, used, reclaimable, free, busy slots, level | M1 |
+| `sub0llmengine.engine.v1` | `start/status --json` | endpoint, slots, context, model id and path, build, config, matchesConfig, bench lock, pool, loading | built |
+| Profile | `config/profiles/*.json` | a config layer plus `_evidence` (records, build, model) | built |
+| Pool watermark | `status --json` `pool`; gateway header (M3) | size, used, reclaimable, free, busy slots, level | built; header M3 |
 | Registry id | Sub0LlmModelRegistry | `hf/<org>/<repo>@<revision>#<file>` and facts | built |
 
 Rules: a contract gains fields without breaking readers; a breaking change bumps its version; every contract a client
@@ -97,10 +97,10 @@ reads is tested without a GPU (`tests/`).
 `engine.v1` with `start/status --json`, the started-engine record, bench-lock refusal, waiting stop.
 
 **M1: serving basics.** What a client needs to run real work on one instance.
-* Pool watermark in `status --json` from `/slots` (used, reclaimable, free, level).
-* A loading instance counts as present (`/health` 503 while loading), so `start` never launches a second server.
-* Named profiles (`profiles`, `--profile NAME`), each with its evidence; flagged stale when build or model changes.
-* `kvUnifiedPerSlot` knob (`--kv-unified-per-slot`, only on builds that have it).
+* Done 2026-11-16: pool watermark in `status --json` from `/slots` (used, reclaimable, free, level; checked on the
+  real server); a loading instance counts as present (`/health` 503), so `start` never launches a second server; named
+  profiles (`profiles`, `--profile NAME`) with evidence, flagged stale when build, model or records change;
+  `kvUnifiedPerSlot` knob (refused with a clear message on builds without `--kv-unified-per-slot`).
 * Start from requirements: `start --slots N --min-ctx T [--min-decode X]` picks the best measured point (needs the
   selector's filters and ranking in Python, shared with the page's tests as fixtures).
 * Move the default build to upstream after re-measuring the serving points on it (owner's go-ahead).

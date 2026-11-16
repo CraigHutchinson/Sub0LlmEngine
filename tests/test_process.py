@@ -14,11 +14,20 @@ from sub0llmengine.backends import llamacpp
 
 
 class StubServer(http.server.BaseHTTPRequestHandler):
-    """Answers /health, /props and /slots like llama-server with 2 slots of 8192 tokens, one busy."""
+    """Answers /health, /props and /slots like llama-server with 2 slots of 8192 tokens, one busy (3000 tokens held) and one
+    idle (1000 held). With loading = True it answers 503 everywhere, as llama-server does while it loads the model."""
+    loading = False
+
     def do_GET(self):
+        if self.loading:
+            self.send_response(503)
+            self.end_headers()
+            self.wfile.write(b'{"error": {"message": "Loading model", "code": 503}}')
+            return
         body = {"/health": {"status": "ok"},
                 "/props": {"model_alias": "stub", "default_generation_settings": {"n_ctx": 8192}},
-                "/slots": [{"id": 0, "is_processing": True}, {"id": 1, "is_processing": False}]}.get(self.path)
+                "/slots": [{"id": 0, "n_ctx": 8192, "is_processing": True, "n_prompt_tokens": 3000},
+                           {"id": 1, "n_ctx": 8192, "is_processing": False, "n_prompt_tokens": 1000}]}.get(self.path)
         self.send_response(200 if body is not None else 404)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
@@ -106,6 +115,12 @@ class TestCommand(Tmp):
                      "-ub 512", "-t 8", "--no-mmap", "-kvu", "--alias stub", "--metrics", "-ctxcp 8", "-cram 4096", "--foo 1"]:
             self.assertIn(part, joined)
 
+    def test_kv_unified_per_slot_needs_a_build_with_the_flag(self):
+        with self.assertRaises(SystemExit):
+            process.command(self.cfg(kvUnifiedPerSlot=8192))
+        llamacpp.LlamaCpp._help[self.bin] = "--kv-unified-per-slot N ..."
+        self.assertIn("--kv-unified-per-slot 8192", " ".join(process.command(self.cfg(kvUnifiedPerSlot=8192))))
+
     def test_new_build_uses_load_mode(self):
         llamacpp.LlamaCpp._help[self.bin] = "-lm, --load-mode {none,mmap,mlock,auto}"
         joined = " ".join(process.command(self.cfg(mmap=True)))
@@ -113,9 +128,27 @@ class TestCommand(Tmp):
         self.assertNotIn("--no-mmap", joined)
 
 
+class TestPool(unittest.TestCase):
+    def slots(self, *held_busy):
+        return [{"id": i, "n_ctx": 1000, "n_prompt_tokens": h, "is_processing": b} for i, (h, b) in enumerate(held_busy)]
+
+    def test_levels(self):
+        for used, level in [(690, "ok"), (700, "notice"), (850, "warning"), (950, "critical")]:
+            self.assertEqual(process.pool({"ctx": 1000, "kvUnified": True}, self.slots((used, True), (40, False)))["level"], level)
+
+    def test_unified_pool_is_ctx_and_separate_pools_add_up(self):
+        sl = self.slots((100, True), (200, False))
+        self.assertEqual(process.pool({"ctx": 4096, "kvUnified": True}, sl)["size"], 4096)
+        self.assertEqual(process.pool({"ctx": 4096, "kvUnified": False}, sl)["size"], 2000)
+
+    def test_no_slots(self):
+        self.assertIsNone(process.pool({"ctx": 1}, []))
+
+
 class TestEngineDescription(Tmp):
-    def serve(self):
-        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), StubServer)
+    def serve(self, loading=False):
+        handler = type("Stub", (StubServer,), {"loading": loading})
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(srv.server_close)
         self.addCleanup(srv.shutdown)
@@ -168,6 +201,22 @@ class TestEngineDescription(Tmp):
             popen.assert_not_called()
         self.assertIn("4242", said[0])
         self.assertEqual(process.info(self.cfg(port=self.freePort()))["benchLock"], "4242")
+
+    def test_pool_watermark_from_slots(self):
+        cfg = self.cfg(port=self.serve(), ctx=8192)
+        pl = process.info(cfg)["pool"]
+        self.assertEqual((pl["size"], pl["used"], pl["reclaimable"], pl["free"], pl["busySlots"], pl["level"]),
+                         (8192, 3000, 1000, 5192, 1, "ok"))
+
+    def test_loading_server_counts_as_starting_and_is_not_started_again(self):
+        cfg = self.cfg(port=self.serve(loading=True))
+        self.assertEqual(process.health(cfg), "loading")
+        self.assertFalse(process.running(cfg))
+        d = process.info(cfg)
+        self.assertEqual((d["running"], d["loading"]), (False, True))
+        with mock.patch("subprocess.Popen") as popen:
+            self.assertEqual(process.start(cfg, wait=False, say=lambda m: None), 0)
+            popen.assert_not_called()
 
     def test_stop_with_nothing_running(self):
         self.assertEqual(process.stop(self.cfg(port=self.freePort()), say=lambda m: None), 0)

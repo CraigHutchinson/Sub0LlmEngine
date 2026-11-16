@@ -25,7 +25,8 @@ python -m sub0llmengine config           # the effective configuration and the s
 python -m sub0llmengine serve            # the tuning page: http://127.0.0.1:8781/
 python -m sub0llmengine sweep --ctx 65536,131072 --ncmoe 32,36,40 --depth 2048 --B 1,4,8
 python -m sub0llmengine start            # serve the chosen configuration (OpenAI-compatible, 127.0.0.1)
-python -m sub0llmengine --config config/profiles/qwen36-35b-b4-ctx8k.json start   # a saved profile: 35B, 4 requests, 8k+ each
+python -m sub0llmengine profiles                                  # named profiles, their evidence, and whether it still holds
+python -m sub0llmengine --profile qwen36-35b-b4-ctx8k start      # a saved profile: 35B, 4 requests, 8k+ each
 python -m sub0llmengine status           # slots, context per slot, and the line to give a client (--json for programs)
 python -m sub0llmengine stop
 ```
@@ -148,11 +149,15 @@ python -m sub0llmengine --config squad.engine.json config --json  # layers, mode
 | `startedByThisTool` | `start` recorded this engine in `out/engine.json`; the fields below come from that record |
 | `model`, `build`, `config`, `command`, `startedAt` | registry id and file path, `git describe` of the llama.cpp build, the effective settings and exact command |
 | `matchesConfig`, `differences` | whether the answering engine was started with the settings now configured; else `{key: [running, configured]}`. `null` when something else answers on the port |
+| `pool` | the KV pool watermark (llama-server has none): `size`, `used` (tokens held by busy slots, prompt plus generated), `reclaimable` (held by idle slots; the server clears them when short), `free`, `busySlots`, `level` (`ok`, `notice` at 70 % used, `warning` 85 %, `critical` 95 %), `perSlot`. Shared prefixes count twice, so it errs safe |
+| `loading` | when nothing answers yet: a server this tool started is still loading the model |
 | `benchLock` | the pid holding the bench's GPU lock, when a bench is running |
 
 Rules a consumer can rely on:
 
-* `start` exits 0 when an engine answers (already, or started and ready), 1 when it failed to start (the log's tail is
+* A profile (`--profile NAME`, `config/profiles/NAME.json`) is a config layer with `_evidence` (build, model, bench
+  records); `profiles` flags one whose build, model or records no longer match.
+* `start` exits 0 when an engine answers (already, still loading, or started and ready), 1 when it failed to start (the log's tail is
   printed), 2 when a bench holds the GPU (`out/bench.lock`). It never starts a second engine on a port that answers:
   check `matchesConfig`, and `stop` then `start` to apply other settings.
 * `stop` only stops an engine this tool started (exit 1 if another one answers there) and waits for it to go.
