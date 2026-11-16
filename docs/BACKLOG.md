@@ -1,8 +1,24 @@
 # Backlog
 
-Work for Sub0LlmEngine, in rough priority order. Moved here from Sub0Squad's backlog where it concerned the engine.
+Work for Sub0LlmEngine. The target system and the milestones are in [DESIGN.md](DESIGN.md); each item below names its
+milestone. Done items are kept short here and leave in the next tidy-up (git keeps them).
 
-## Tuning map
+## By milestone
+
+* **M1 serving basics** (in progress): pool watermark in `status --json`; a loading instance counts as present; named
+  profiles with evidence; `kvUnifiedPerSlot` knob; start from requirements (*Start from requirements*); default build
+  moved to upstream after re-measuring; pool-exhaustion spike (*KV memory model*); B = 3..16 at depth >= 16k
+  (*Tuning map*); choose and record the final serving configuration in RESULTS.md.
+* **M2 supervision and arbitration**: named instances, restart on crash, log rotation, one lock for instances and
+  benches, resource allowances (*Tuning map*), service install (*Engine supervision*).
+* **M3 gateway**: OpenAI-compatible proxy with admission, the watermark in responses, usage records, routing.
+* **M4 workload-adaptive configuration** (*Workload-adaptive engine configuration*): the spike is done; next the
+  bounded fixture against fixed configurations.
+* **M5 backends and machines**: strata, Sub0Llm; build management; model offers (*Engine supervision*).
+* **Evidence quality** (any time): placement prediction from registry facts, recency for repeats, warm-up prefill in the
+  spike, the open model issues (`docs/issues/`).
+
+## Tuning map (evidence quality; M1 for the B = 3..16 measurements, M2 for allowances)
 
 - **Runtime explorer audit: done 2026-11-16.** Every concurrency reached the pool; the cause was the "minimum context
   per slot" default of 16384, which also requires the *measured* prompt to be that deep: 513 of 525 accepted points
@@ -32,7 +48,7 @@ Work for Sub0LlmEngine, in rough priority order. Moved here from Sub0Squad's bac
   skip for runs predicted to exceed them from the registry's `expertBytesByLayer` and KV size). Store them per machine in
   the engine config; the export carries them so a receiving server can refuse a config that breaks them.
 
-## Start from requirements (owner, 2026-11-16)
+## Start from requirements (M1; owner, 2026-11-16)
 
 - `start --slots 4 --min-ctx 8192` (and `--model`, `--min-decode`, `--min-prefill`): the engine picks the best measured
   configuration meeting the requirements from this machine's bench history (the runtime explorer's selection rules:
@@ -42,7 +58,7 @@ Work for Sub0LlmEngine, in rough priority order. Moved here from Sub0Squad's bac
 - Named profiles in `config/profiles/` listed by `python -m sub0llmengine profiles`, each with its evidence (record
   ids, build, date) so a stale profile (new build or model) is flagged.
 
-## KV memory model: no paged attention; unified KV and the per-slot cap (checked 2026-11-16)
+## KV memory model: no paged attention; unified KV and the per-slot cap (M1; checked 2026-11-16)
 
 - llama.cpp has no vLLM-style paged attention (no block tables): nothing named "paged" in the source or commit history
   of upstream `c7518db`. Its equivalent is the unified KV (`-kvu`): one pool of token cells shared by all slots, each
@@ -68,7 +84,7 @@ Work for Sub0LlmEngine, in rough priority order. Moved here from Sub0Squad's bac
   evidence boundaries) into an enforced limit that matches `squadCtx`. Add it as a knob (`kvUnifiedPerSlot`, only when
   the build has the flag) and use it in profiles once the engine moves to the upstream build.
 
-## Workload-adaptive engine configuration (spike)
+## Workload-adaptive engine configuration (M4; spike done)
 
 Context (2026-11-16): the four-priority runtime explorer (speed, context, concurrency, prefill) works well, but no single
 configuration wins every phase of a job, and there may be axes not yet identified that matter as much (check first:
@@ -118,7 +134,7 @@ KV quantization, speculative decoding, flash attention, thread and CPU-MoE place
 - Measure first: a bounded fixture (long-prompt job, then many short decodes) comparing fixed configurations against a
   scripted switch, reporting total time, TTFT and peak VRAM.
 
-## Engine supervision (from Sub0Squad's "wizard")
+## Engine supervision (M2 and M5; from Sub0Squad's "wizard")
 
 - Build and update llama.cpp (`D:\tools\llamacpp` scripts today) from the engine: a pinned commit, CUDA arch for the
   machine, the build label recorded with every bench. A build or install needs the owner's go-ahead.

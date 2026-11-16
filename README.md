@@ -192,6 +192,7 @@ Fetching models belongs to the registry: `python -m sub0llmregistry fetch hf:<or
 
 * [docs/RESULTS.md](docs/RESULTS.md): Intel Core Ultra 9 275HX, RTX 5070 Laptop (8 GB), 64 GB, Qwen3.6-35B-A3B.
 * [docs/TUNING_MAP.md](docs/TUNING_MAP.md): the selection rules, evidence boundaries and the consumer contract.
+* [docs/DESIGN.md](docs/DESIGN.md): the whole system, its contracts and milestones (M0 done, M1 in progress).
 * [docs/BACKLOG.md](docs/BACKLOG.md): next work, including resource allowances and workload-adaptive configuration.
 * [docs/sessions/](docs/sessions/README.md): handoff docs, a self-contained brief per follow-up task.
 * Known issues, being isolated before reporting upstream:

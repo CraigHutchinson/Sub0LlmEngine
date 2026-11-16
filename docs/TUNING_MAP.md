@@ -84,6 +84,9 @@ selection contract; placement/kernel flags belong to the adapter. No placeholder
 
 ## Next balanced slices
 
+These map onto [DESIGN.md](DESIGN.md): real-server receiving is M1, live telemetry the watermark (M1) and gateway (M3),
+adaptive admission M3, adaptive engine settings M4.
+
 1. **Real server receiving.** User sees benchmark-vs-serving evidence next to the chosen point. Bottom up, after the current
    queue drains, run a bounded request fixture against the selected configuration at its stated concurrency, prompt and output
    budgets; capture output correctness, peak memory, TTFT and per-sequence/aggregate throughput. Receive the resulting endpoint
