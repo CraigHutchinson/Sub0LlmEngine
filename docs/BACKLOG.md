@@ -52,6 +52,13 @@ Work for Sub0LlmEngine, in rough priority order. Moved here from Sub0Squad's bac
   other sequences' cells masked out, so per-sequence speed can fall as the whole pool fills, not only with that
   sequence's own length (newer KV slicing, `get_n_kv_slices`, may narrow this). Measure: decode at B=4 and depth 8k with
   the rest of the pool empty against full.
+- **Dynamic context for clients** (Sub0Squad, 2026-11-16: requests keep going past their planned context while the pool
+  has room). Needed from the engine: pool headroom in `status --json` (used and free cells, from `/slots` token counts:
+  llama-server's `/metrics` has no KV usage), so a client can admit or grow a request; an exhaustion signal it can tell
+  apart (`finish_reason: "length"` for one request, "Context size has been exceeded." for all of them); and a spike that
+  fills the pool with 4 growing requests to see the failure and its recovery cost. On a full pool with every slot busy
+  llama-server fails all active requests (`server-context.cpp`, TODO: end only the largest sequence): a candidate
+  upstream patch.
 - Upstream added `--kv-unified-per-slot N` (ggml-org/llama.cpp#24124, 2026-08-27; not in b9413): a context cap per slot
   inside the shared pool (`-c` defaults to slots x N). It turns the equal-share assumption (`ctx / B` in TUNING_MAP's
   evidence boundaries) into an enforced limit that matches `squadCtx`. Add it as a knob (`kvUnifiedPerSlot`, only when
