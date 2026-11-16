@@ -42,6 +42,21 @@ Work for Sub0LlmEngine, in rough priority order. Moved here from Sub0Squad's bac
 - Named profiles in `config/profiles/` listed by `python -m sub0llmengine profiles`, each with its evidence (record
   ids, build, date) so a stale profile (new build or model) is flagged.
 
+## KV memory model: no paged attention; unified KV and the per-slot cap (checked 2026-11-16)
+
+- llama.cpp has no vLLM-style paged attention (no block tables): nothing named "paged" in the source or commit history
+  of upstream `c7518db`. Its equivalent is the unified KV (`-kvu`): one pool of token cells shared by all slots, each
+  cell tagged with its sequences, allocated per token, with prefixes shareable between sequences. A short request does
+  not reserve `ctx / slots`, so idle capacity flows to busy slots, which is most of paged attention's benefit.
+- The cost: a decode step's attention spans the pool's used range (`get_n_kv`: up to the highest used cell, padded) with
+  other sequences' cells masked out, so per-sequence speed can fall as the whole pool fills, not only with that
+  sequence's own length (newer KV slicing, `get_n_kv_slices`, may narrow this). Measure: decode at B=4 and depth 8k with
+  the rest of the pool empty against full.
+- Upstream added `--kv-unified-per-slot N` (ggml-org/llama.cpp#24124, 2026-08-27; not in b9413): a context cap per slot
+  inside the shared pool (`-c` defaults to slots x N). It turns the equal-share assumption (`ctx / B` in TUNING_MAP's
+  evidence boundaries) into an enforced limit that matches `squadCtx`. Add it as a knob (`kvUnifiedPerSlot`, only when
+  the build has the flag) and use it in profiles once the engine moves to the upstream build.
+
 ## Workload-adaptive engine configuration (spike)
 
 Context (2026-11-16): the four-priority runtime explorer (speed, context, concurrency, prefill) works well, but no single
