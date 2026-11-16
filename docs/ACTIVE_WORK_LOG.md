@@ -6,5 +6,4 @@ them). One GPU job at a time: benches take `out/bench.lock`; `start` refuses whi
 
 | Date | Owner | Scope | Status | Hardware |
 |---|---|---|---|---|
-| 2026-11-16 | Claude session | Tuning server at 127.0.0.1:8781 (`serve`), queue idle | Running | Uses the GPU only for queued jobs |
 | 2026-11-16 | Codex | Coverage targets, gap experiments, benchmark progress visibility, planner evidence scope | Active | Existing queue owns CPU/GPU; lightweight tests only; refresh Python server only after verifying idle and preserving its state |

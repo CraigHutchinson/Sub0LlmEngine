@@ -32,6 +32,16 @@ Work for Sub0LlmEngine, in rough priority order. Moved here from Sub0Squad's bac
   skip for runs predicted to exceed them from the registry's `expertBytesByLayer` and KV size). Store them per machine in
   the engine config; the export carries them so a receiving server can refuse a config that breaks them.
 
+## Start from requirements (owner, 2026-11-16)
+
+- `start --slots 4 --min-ctx 8192` (and `--model`, `--min-decode`, `--min-prefill`): the engine picks the best measured
+  configuration meeting the requirements from this machine's bench history (the runtime explorer's selection rules:
+  measured points only, requirements as filters), prints why, and starts it; it refuses with the nearest measured
+  alternatives when nothing measured qualifies, and can queue the missing bench instead. `--dry-run` shows the choice.
+  Today this is done by hand with a profile layer: `config/profiles/qwen36-35b-b4-ctx8k.json`.
+- Named profiles in `config/profiles/` listed by `python -m sub0llmengine profiles`, each with its evidence (record
+  ids, build, date) so a stale profile (new build or model) is flagged.
+
 ## Workload-adaptive engine configuration (spike)
 
 Context (2026-11-16): the four-priority runtime explorer (speed, context, concurrency, prefill) works well, but no single

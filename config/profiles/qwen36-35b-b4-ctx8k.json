@@ -1,0 +1,18 @@
+{
+  "_comment": "Qwen3.6-35B-A3B, 4 concurrent requests, at least 8k context each. Best measured point at B=4, depth 8192 on the reference machine (RTX 5070 Laptop 8 GB, llama.cpp b9413): 88.6 tok/s decode across the 4 (22.2 per request). ctx is the total KV shared by the slots: 65536 / 4 = 16384 per slot. Use: python -m sub0llmengine --config config/profiles/qwen36-35b-b4-ctx8k.json start",
+  "model": "qwen36-35b-a3b",
+  "alias": "qwen35",
+  "slots": 4,
+  "ctx": 65536,
+  "squadCtx": 8192,
+  "nCpuMoe": 32,
+  "gpuLayers": 99,
+  "ubatch": 512,
+  "batch": 2048,
+  "threads": 16,
+  "cacheTypeK": "q8_0",
+  "cacheTypeV": "q8_0",
+  "flashAttn": "on",
+  "kvUnified": true,
+  "mmap": false
+}

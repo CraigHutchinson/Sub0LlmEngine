@@ -25,6 +25,7 @@ python -m sub0llmengine config           # the effective configuration and the s
 python -m sub0llmengine serve            # the tuning page: http://127.0.0.1:8781/
 python -m sub0llmengine sweep --ctx 65536,131072 --ncmoe 32,36,40 --depth 2048 --B 1,4,8
 python -m sub0llmengine start            # serve the chosen configuration (OpenAI-compatible, 127.0.0.1)
+python -m sub0llmengine --config config/profiles/qwen36-35b-b4-ctx8k.json start   # a saved profile: 35B, 4 requests, 8k+ each
 python -m sub0llmengine status           # slots, context per slot, and the line to give a client (--json for programs)
 python -m sub0llmengine stop
 ```
