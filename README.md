@@ -168,8 +168,16 @@ Rules a consumer can rely on:
 
 ## Configuration
 
-Layers, later wins: `config/engine.defaults.json` < `engine.local.json` (gitignored, this machine) < `$SUB0LLMENGINE_CONFIG`
-< `--config FILE`. Changes made from the page go to the top layer.
+Layers, later wins: `config/engine.defaults.json` < `engine.local.json` (gitignored, this machine) <
+`engine.local.<platform>.json` < `$SUB0LLMENGINE_CONFIG` < `--profile NAME` < `--config FILE`. Changes made from the page go
+to the top layer.
+
+**Windows and Linux.** One checkout serves both (WSL included): keep the shared choice in `engine.local.json` and what
+differs, usually `binDir`, in `engine.local.windows.json` or `engine.local.linux.json` (WSL reads `linux` then `wsl`).
+Windows drive paths (`D:/LlmModels`) are read as `/mnt/d/...` under WSL. With WSL's mirrored networking
+(`networkingMode=mirrored`) a client in WSL reaches an engine started on Windows at 127.0.0.1, which is how Sub0Squad
+runs today; serving natively on Linux needs a Linux llama.cpp build. Platform differences live in
+`sub0llmengine/platform.py`; the tests run on both (`python -m unittest discover -s tests`, and `python3 ...` in WSL).
 
 | Key | Meaning |
 |---|---|

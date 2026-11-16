@@ -7,7 +7,7 @@ import subprocess
 from .. import config
 from . import Backend
 
-EXE = ".exe" if config.IS_WINDOWS else ""
+from ..platform import EXE, localPath, IS_WINDOWS  # noqa: E402
 ROW = re.compile(r"^\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|")
 
 
@@ -69,9 +69,14 @@ class LlamaCpp(Backend):
         return flag in self._help[bindir]
 
     def binary(self, cfg, name):
-        path = os.path.join(cfg.get("binDir") or "", name + EXE)
+        bindir = localPath(cfg.get("binDir") or "")
+        path = os.path.join(bindir, name + EXE)
         if not os.path.isfile(path):
-            raise SystemExit("no %s at %s: set 'binDir' in %s" % (name, path, config.writableLayer()))
+            hint = ""
+            if not IS_WINDOWS and os.path.isfile(os.path.join(bindir, name + ".exe")):
+                hint = (" (that folder has a Windows build: give this platform its own binDir in engine.local.linux.json, "
+                        "or run the engine on Windows; with WSL's mirrored networking clients here reach it at 127.0.0.1)")
+            raise SystemExit("no %s at %s: set 'binDir' in %s%s" % (name, path, config.writableLayer(), hint))
         return path
 
     def common(self, cfg):
@@ -131,7 +136,7 @@ class LlamaCpp(Backend):
                     pass
                 break
         try:
-            t = os.path.getmtime(os.path.join(bindir, "llama-server" + EXE))
+            t = os.path.getmtime(os.path.join(localPath(bindir), "llama-server" + EXE))
             return "llama.cpp mtime-" + datetime.datetime.fromtimestamp(t).strftime("%Y%m%d")
         except OSError:
             return "llama.cpp unknown"

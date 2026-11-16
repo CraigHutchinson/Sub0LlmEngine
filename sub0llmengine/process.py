@@ -7,14 +7,12 @@ settings are answering, and whether they still match the configuration it was gi
 import datetime
 import json
 import os
-import signal
-import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
 
-from . import backends, config, registry
+from . import backends, config, platform, registry
 
 PID_FILE = os.path.join(config.STATE_DIR, "engine.pid")
 LOG_FILE = os.path.join(config.STATE_DIR, "engine.log")
@@ -41,7 +39,8 @@ def probe(u, timeout=3):
         with urllib.request.urlopen(u, timeout=timeout) as r:
             return r.status, r.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", "replace")
+        with e:
+            return e.code, e.read().decode("utf-8", "replace")
     except Exception:
         return None, None
 
@@ -169,12 +168,7 @@ def start(cfg, wait=True, say=print):
     os.makedirs(config.STATE_DIR, exist_ok=True)
     cmd = command(cfg)
     say("engine: " + " ".join(cmd))
-    flags = 0
-    if config.IS_WINDOWS:  # outlive this console; below-normal priority so the desktop stays responsive
-        flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS | 0x00004000
-    with open(LOG_FILE, "w", encoding="utf-8") as lf:
-        p = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, creationflags=flags,
-                             start_new_session=not config.IS_WINDOWS)
+    p = platform.spawnDetached(cmd, LOG_FILE)
     with open(PID_FILE, "w") as f:
         f.write(str(p.pid))
     record(cfg, cmd, p.pid)
@@ -198,14 +192,7 @@ def start(cfg, wait=True, say=print):
 
 
 def alive(p):
-    if config.IS_WINDOWS:
-        out = subprocess.run(["tasklist", "/FI", "PID eq %d" % p, "/NH"], capture_output=True, text=True).stdout
-        return str(p) in out
-    try:
-        os.kill(p, 0)
-        return True
-    except OSError:
-        return False
+    return platform.alive(p)
 
 
 def stop(cfg, say=print, timeout=30):
@@ -219,10 +206,7 @@ def stop(cfg, say=print, timeout=30):
         forget()
         return 0
     try:
-        if config.IS_WINDOWS:
-            subprocess.run(["taskkill", "/PID", str(p), "/T", "/F"], capture_output=True)
-        else:
-            os.kill(p, signal.SIGTERM)
+        platform.terminate(p)
     except OSError as e:
         say("engine: pid %d: %s" % (p, e))
     for _ in range(timeout * 2):

@@ -1,5 +1,5 @@
 # This machine's engine choice (config/engine.defaults.json is the committed base)
-engine.local.json
+engine.local*.json
 # Runtime state: pid, engine and sweep logs
 out/
 __pycache__/

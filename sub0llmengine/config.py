@@ -1,7 +1,11 @@
-"""Layered configuration: config/engine.defaults.json < engine.local.json < $SUB0LLMENGINE_CONFIG < --config FILE.
+"""Layered configuration: config/engine.defaults.json < engine.local.json < engine.local.<platform>.json
+< $SUB0LLMENGINE_CONFIG < --profile < --config FILE.
 
-Keys starting with "_" are comments. engine.local.json is gitignored: it holds this machine's choice (binary folder, model,
-placement, context, slots). A consumer such as Sub0Squad can keep its own file and pass it with --config.
+Keys starting with "_" are comments. engine.local*.json are gitignored: they hold this machine's choice (binary folder,
+model, placement, context, slots). One checkout used from Windows and from WSL keeps the shared choice in
+engine.local.json and what differs (binDir) in engine.local.windows.json / engine.local.linux.json / engine.local.wsl.json
+(applied in that order where they match: WSL reads linux then wsl). A consumer such as Sub0Squad can keep its own file
+and pass it with --config.
 """
 import json
 import os
@@ -12,7 +16,7 @@ LOCAL = os.path.join(ROOT, "engine.local.json")
 BENCH_DIR = os.path.join(ROOT, "bench")
 WEB_DIR = os.path.join(ROOT, "web")
 STATE_DIR = os.path.join(ROOT, "out")
-IS_WINDOWS = os.name == "nt"
+from .platform import IS_WINDOWS, NAMES as PLATFORM_NAMES  # noqa: E402,F401  (IS_WINDOWS kept for callers)
 
 # The knobs one configuration is made of (placement, memory, compute), in the order the tuning page shows them. Bench-only axes
 # are "B" (concurrent sequences; the server's slots) and "depth" (tokens already in each sequence's context when it decodes).
@@ -38,7 +42,7 @@ def addLayer(path):
 
 
 def layers():
-    out = [DEFAULTS, LOCAL]
+    out = [DEFAULTS, LOCAL] + [os.path.join(ROOT, "engine.local.%s.json" % n) for n in PLATFORM_NAMES]
     env = os.environ.get("SUB0LLMENGINE_CONFIG")
     if env:
         out.append(env)
@@ -54,7 +58,8 @@ def load():
 
 def writableLayer():
     """The file changes are saved to: the top --config/env layer when given, else engine.local.json."""
-    return layers()[-1] if len(layers()) > 2 else LOCAL
+    extra = _extra + ([os.environ["SUB0LLMENGINE_CONFIG"]] if os.environ.get("SUB0LLMENGINE_CONFIG") else [])
+    return layers()[-1] if extra else LOCAL
 
 
 def save(updates):

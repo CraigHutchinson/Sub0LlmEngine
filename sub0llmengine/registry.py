@@ -9,7 +9,7 @@ import os
 import re
 import sys
 
-from . import config
+from . import config, platform
 
 _SIBLING = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "Sub0LlmModelRegistry")
 
@@ -31,17 +31,14 @@ def package():
 
 
 def root(cfg):
-    r = os.environ.get("SUB0_MODEL_REGISTRY") or cfg.get("registry") or ""
-    if not config.IS_WINDOWS and re.match(r"^[A-Za-z]:[\\/]", r):  # a Windows path seen from WSL
-        r = "/mnt/" + r[0].lower() + "/" + r[3:].replace("\\", "/")
-    return r
+    return platform.localPath(os.environ.get("SUB0_MODEL_REGISTRY") or cfg.get("registry") or "")
 
 
 def resolve(cfg, ref=None):
     """Returns (path, registry id or None)."""
     ref = ref or cfg.get("model") or ""
-    if os.path.isfile(ref):
-        return ref, None
+    if os.path.isfile(platform.localPath(ref)):
+        return platform.localPath(ref), None
     r = root(cfg)
     pkg = package()
     if pkg and r:
