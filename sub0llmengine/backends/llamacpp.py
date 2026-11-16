@@ -11,8 +11,60 @@ EXE = ".exe" if config.IS_WINDOWS else ""
 ROW = re.compile(r"^\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|")
 
 
+# The knobs, simplified: what each sets, when it can change, and which runtime axes it moves (see sub0llmengine/axes.py).
+# change: "load" = fixed when llama-server loads (a change means a restart); "request" = per request.
+# identity: part of a measured point (a bench record's params); benchAs: the bench's name for a server knob.
+KNOBS = [
+    dict(id="nCpuMoe", flag="-ncmoe", type="int", unit="layers", min=0, maxFact="expertLayers", change="load", identity=True,
+         affects=["speed", "context"], note="expert layers kept in system RAM; each frees VRAM for context and costs decode speed"),
+    dict(id="ctx", flag="-c", type="int", unit="tokens", min=256, step=256, change="load", identity=True,
+         affects=["context", "concurrency"], note="total KV cache, shared by the slots (unified KV)"),
+    dict(id="slots", flag="-np", type="int", unit="sequences", min=1, change="load", benchAs="B",
+         affects=["concurrency"], note="requests served at once"),
+    dict(id="ubatch", flag="-ub", type="int", unit="tokens", min=32, step=128, change="load", identity=True,
+         affects=["prefill"], note="tokens per prompt-processing step; larger is faster prefill for more compute buffer VRAM"),
+    dict(id="batch", flag="-b", type="int", unit="tokens", min=32, step=128, change="load", identity=True, affects=["prefill"]),
+    dict(id="threads", flag="-t", type="int", unit="threads", min=-1, change="load", identity=True, affects=["speed", "prefill"],
+         note="CPU threads for the CPU-resident experts; -1 is automatic"),
+    dict(id="cacheTypeK", flag="-ctk", type="enum", values=["f16", "q8_0", "q4_0"], change="load", identity=True, affects=["context", "speed"]),
+    dict(id="cacheTypeV", flag="-ctv", type="enum", values=["f16", "q8_0", "q4_0"], change="load", identity=True, affects=["context", "speed"]),
+    dict(id="flashAttn", flag="-fa", type="enum", values=["on", "off", "auto"], change="load", identity=True, affects=["speed", "context"]),
+    dict(id="kvUnified", flag="-kvu", type="bool", change="load", identity=True, affects=["concurrency"]),
+    dict(id="mmap", flag="--no-mmap", type="bool", change="load", identity=True, affects=[], note="load time and RAM, not speed"),
+    dict(id="gpuLayers", flag="-ngl", type="int", unit="layers", min=0, change="load", identity=True, affects=["speed", "context"]),
+    dict(id="nPredict", field="n_predict", type="int", unit="tokens", min=-1, change="request", affects=[], note="output budget"),
+    dict(id="idSlot", field="id_slot", type="int", min=-1, change="request", affects=[], note="pin a request to a slot (its KV)"),
+    dict(id="cachePrompt", field="cache_prompt", type="bool", change="request", affects=["prefill"], note="reuse a cached prefix"),
+]
+# Moving a sequence's KV between configurations: llama-server saves and restores one slot to a file.
+CONTEXT_TRANSFER = dict(method="slot-save-restore", serverFlag="--slot-save-path",
+                        endpoints=["POST /slots/{id}?action=save", "POST /slots/{id}?action=restore", "POST /slots/{id}?action=erase"])
+
+
 class LlamaCpp(Backend):
     name = "llamacpp"
+
+    def selectionParams(self):
+        return tuple(config.PARAM_KEYS)
+
+    def knobs(self):
+        return [dict(k) for k in KNOBS]
+
+    def contextTransfer(self):
+        return dict(CONTEXT_TRANSFER)
+
+    _help = {}
+
+    def hasFlag(self, cfg, flag):
+        """Whether this build's llama-server accepts a flag (its --help, read once per binary folder)."""
+        bindir = cfg.get("binDir") or ""
+        if bindir not in self._help:
+            try:
+                self._help[bindir] = subprocess.run([self.binary(cfg, "llama-server"), "--help"], capture_output=True, text=True,
+                                                    timeout=30, errors="replace").stdout
+            except (SystemExit, OSError, subprocess.SubprocessError):
+                self._help[bindir] = ""
+        return flag in self._help[bindir]
 
     def binary(self, cfg, name):
         path = os.path.join(cfg.get("binDir") or "", name + EXE)
@@ -27,7 +79,9 @@ class LlamaCpp(Backend):
             a += ["-ncmoe", str(cfg["nCpuMoe"])]
         a += ["-fa", str(cfg.get("flashAttn", "on")), "-ctk", cfg.get("cacheTypeK", "q8_0"), "-ctv", cfg.get("cacheTypeV", "q8_0")]
         a += ["-b", str(cfg.get("batch", 2048)), "-ub", str(cfg.get("ubatch", 512)), "-t", str(cfg.get("threads", -1))]
-        if not cfg.get("mmap", False):
+        if self.hasFlag(cfg, "--load-mode"):  # upstream replaced --no-mmap with -lm/--load-mode (late 2026)
+            a += ["-lm", "mmap" if cfg.get("mmap", False) else "none"]
+        elif not cfg.get("mmap", False):
             a.append("--no-mmap")
         if cfg.get("kvUnified", True):
             a.append("-kvu")
@@ -61,7 +115,7 @@ class LlamaCpp(Backend):
         d = bindir
         for _ in range(5):
             d = os.path.dirname(d)
-            if os.path.isdir(os.path.join(d, ".git")):
+            if os.path.exists(os.path.join(d, ".git")):  # a directory, or a file in a git worktree
                 try:
                     out = subprocess.run(["git", "-C", d, "describe", "--tags", "--always"], capture_output=True, text=True, timeout=10).stdout.strip()
                     if out:

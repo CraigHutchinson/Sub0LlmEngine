@@ -7,6 +7,18 @@ Today: llamacpp (llama.cpp llama-server / llama-batched-bench). Planned: strata,
 class Backend:
     name = "base"
 
+    def selectionParams(self):
+        """Backend-owned knobs required to reproduce an exported measured selection."""
+        raise NotImplementedError
+
+    def knobs(self):
+        """The backend's knobs, simplified (see sub0llmengine/axes.py for the fields)."""
+        raise NotImplementedError
+
+    def contextTransfer(self):
+        """How a sequence's KV can move from one running configuration to another, or None."""
+        return None
+
     def serverCommand(self, cfg, modelPath):
         """argv that serves an OpenAI-compatible API at cfg host:port."""
         raise NotImplementedError

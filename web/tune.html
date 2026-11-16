@@ -30,6 +30,7 @@ select, input { font: inherit; font-size: 13px; color: var(--ink); background: v
 input { width: 100%; }
 button { font: inherit; font-size: 13px; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 5px; padding: 5px 10px; cursor: pointer; }
 button.ghost { background: transparent; color: var(--accent); }
+button.guide { padding: 0 4px; font-size: 12px; border: none; margin-left: 4px; cursor: pointer; }
 .filters { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 8px 0; border-top: 1px dashed var(--line); }
 .scroll { overflow-x: auto; }
 svg text { fill: var(--ink); font-size: 11px; }
@@ -49,16 +50,236 @@ pre { white-space: pre-wrap; word-break: break-all; font-size: 11.5px; backgroun
 .note { color: var(--muted); font-size: 12px; }
 #tip { position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.15); display: none; max-width: 340px; z-index: 5; }
 </style>
+<style>
+:root { --bg:#f4f6f8; --ink:#182638; --muted:#58687a; --accent:#226bba; --line:#dce3eb; }
+header { max-width:1600px; margin:auto; padding:28px 28px 16px; align-items:center; }
+header h1 { font-size:28px; letter-spacing:-.8px; font-weight:650; }
+header .meta { display:block; margin-top:8px; max-width:900px; }
+.eyebrow { color:var(--accent); font-size:11px; font-weight:750; letter-spacing:.13em; text-transform:uppercase; }
+.intro { margin:6px 0 0; color:var(--muted); }
+main { max-width:1600px; margin:auto; padding:0 28px 32px; grid-template-columns:minmax(0,1fr) 320px; gap:18px; }
+.panel { border-radius:12px; padding:20px; }
+.panel h2 { color:var(--ink); font-size:17px; text-transform:none; letter-spacing:-.2px; }
+.panel h3 { font-size:14px; margin:0 0 12px; }
+.note { line-height:1.6; }
+button { padding:8px 12px; border-radius:7px; font-weight:600; color:var(--panel); }
+button:disabled { opacity:.45; cursor:not-allowed; }
+button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+select, input { padding:7px 8px; }
+.tabs { display:flex; gap:6px; max-width:1600px; margin:0 auto 18px; padding:0 28px; }
+.tabs button { background:transparent; color:var(--muted); border-color:transparent; }
+.tabs button[aria-pressed="true"] { background:var(--panel); color:var(--accent); border-color:var(--line); }
+[hidden] { display:none !important; }
+.statusbar { grid-column:1 / -1; display:flex; gap:12px; align-items:center; font-size:12px; color:var(--muted); padding:10px 14px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+.statusbar b { color:var(--ok); white-space:nowrap; }
+/* The runtime explorer gives the decision area the full width; the status panels move below it as a row. */
+body[data-view="runtime"] main { grid-template-columns:minmax(0,1fr); }
+body[data-view="runtime"] .side { grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
+.hero { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:22px; align-items:start; margin-top:16px; }
+.hero-shape { min-width:0; }
+#preferenceTriangle { width:100%; max-width:680px; height:auto; display:block; margin:auto; touch-action:none; cursor:crosshair; user-select:none; -webkit-user-select:none; }
+#pyramid, .hero-shape { user-select:none; -webkit-user-select:none; }
+#preferenceTriangle text { font-size:13px; font-weight:600; }
+#preferenceTriangle .region-label { font-size:12px; font-weight:700; paint-order:stroke; stroke:var(--panel); stroke-width:3px; pointer-events:none; }
+#preferenceTriangle .vertex-label { font-size:15px; font-weight:700; }
+/* the triangle's controls: one panel, numbered groups, the same heading, chip and label style throughout */
+.tri-controls { max-width:640px; margin:12px auto 0; display:grid; gap:10px; }
+.tri-controls fieldset { margin:0; padding:10px 12px; border:1px solid var(--line); border-radius:8px; display:grid; gap:8px; min-width:0; }
+.tri-controls legend { padding:0 6px; font-size:13px; font-weight:600; color:var(--ink); }
+.tri-controls legend b { display:inline-grid; place-items:center; width:18px; height:18px; margin-right:4px; border-radius:50%; background:var(--accent); color:var(--panel); font-size:11px; }
+.tri-controls legend .note { font-weight:400; margin-left:4px; }
+.tri-controls > .note { margin:0; }
+.tri-controls .weights { grid-template-columns:1fr 1fr; gap:4px 18px; }
+.chips { display:flex; flex-wrap:wrap; gap:5px; margin:0; }
+.chips button { padding:4px 9px; font-size:12px; font-weight:600; border-radius:999px; }
+.chips button[aria-pressed="true"] { background:var(--accent); color:var(--panel); }
+.chips button.unknown { opacity:.45; border-style:dashed; }
+.tri-stage { position:relative; max-width:680px; margin:auto; }
+.pyramid-inset { position:absolute; top:0; left:0; width:clamp(110px,24%,170px); margin:0; padding:6px; border:1px solid var(--line); border-radius:8px; background:var(--panel); z-index:1; }
+.pyramid-inset svg { width:100%; height:auto; display:block; cursor:grab; touch-action:none; }
+.pyramid-inset svg:active { cursor:grabbing; }
+.pyramid-inset svg .face { cursor:pointer; }
+.pyramid-inset figcaption { font-size:10px; color:var(--muted); text-align:center; margin-top:2px; display:grid; gap:4px; }
+.cam-buttons { display:flex; gap:4px; justify-content:center; }
+.cam-buttons button { padding:2px 7px; font-size:11px; border-radius:999px; }
+#preferenceTriangle .edge-back { stroke-dasharray:5 4; }
+#axesTable th, #axesTable td { text-align:left; }
+.view-row { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:end; }
+.view-row label { flex:1 1 200px; }
+.view-row select { width:100%; }
+.hero-side .metrics { grid-template-columns:1fr 1fr; }
+.hero-side .metric strong { font-size:22px; }
+.hero-side pre { font-size:11px; }
+.reqs { margin-top:18px; border:1px solid var(--line); border-radius:8px; padding:8px 12px; background:var(--bg); }
+.reqs summary { cursor:pointer; }
+.reqs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px 12px; margin:10px 0 4px; font-size:12px; }
+.reqs-grid select, .reqs-grid input { font-size:12px; }
+@media (max-width:1400px) {
+  .hero { grid-template-columns:minmax(0,1fr) 280px; }
+}
+@media (max-width:900px) { .hero { grid-template-columns:minmax(0,1fr); } }
+@media (max-width:560px) { .tri-controls .weights { grid-template-columns:1fr; } }
+.weights { display:grid; gap:8px; }
+.weights label { grid-template-columns:80px 1fr 36px; align-items:center; color:var(--ink); gap:8px; }
+input[type="range"] { padding:0; accent-color:var(--accent); }
+.requirements { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:16px 0; }
+.metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:12px 0; }
+.metric { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:12px; }
+.metric strong { display:block; font-size:25px; font-weight:650; letter-spacing:-.7px; color:var(--ink); }
+.metric span { font-size:11px; color:var(--muted); }
+.scope { display:flex; flex-wrap:wrap; gap:10px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+.scope label:first-child { flex:1; min-width:180px; }
+.scope select { max-width:100%; }
+.tag { display:inline-block; font-size:11px; border:1px solid var(--line); background:var(--bg); padding:3px 7px; border-radius:5px; color:var(--muted); }
+.warning { color:var(--oom); }
+.recommend-title { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.recommend-title h3 { margin:0; }
+.evidence-note { border-left:3px solid var(--accent); padding-left:12px; margin:16px 0; }
+.actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.frontier { border-top:1px solid var(--line); margin-top:22px; padding-top:20px; }
+.frontier .controls { justify-content:space-between; align-items:center; }
+.frontier svg { width:100%; display:block; }
+th { color:var(--muted); font-weight:600; }
+td, th { padding:9px 8px; }
+.choices button { background:transparent; color:var(--accent); border:0; padding:4px; font-size:12px; }
+.choices tr[aria-selected="true"] { background:var(--bg); }
+details { margin-top:12px; }
+summary { cursor:pointer; color:var(--muted); font-size:12px; }
+.legend button { padding:3px 7px; font-size:12px; }
+.side .panel { padding:16px; }
+#cfgCmd { max-height:180px; overflow:auto; word-break:normal; overflow-wrap:anywhere; }
+#jobs { max-height:190px; overflow:auto; word-break:normal; }
+.small-heading { margin-bottom:4px !important; }
+.coverage { border-top:1px solid var(--line); margin-top:24px; padding-top:20px; }
+.coverage-form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:16px 0; }
+.coverage-form .wide { grid-column:span 3; }
+.coverage-cell { min-width:60px; width:100%; font-size:12px; color:var(--ink); background:var(--bg); border:1px dashed var(--muted); padding:8px 5px; }
+.coverage-cell.measured { border:2px solid var(--ok); }
+.coverage-cell.thin { border:2px solid #bb781e; }
+.coverage-cell.oom,.coverage-cell.mixed,.coverage-cell.error { border:2px solid var(--oom); }
+.coverage-cell.inferred { border:1px dashed var(--oom); }
+.coverage-cell.budget { opacity:.55; border-style:dotted; }
+.coverage-cell[aria-pressed="true"] { outline:3px solid var(--accent); outline-offset:2px; }
+.benchmark-status { white-space:pre-line; font-size:12px; line-height:1.6; }
+.coverage-detail { padding:12px; background:var(--bg); border-radius:8px; margin:12px 0; }
+@media (max-width:700px) { .coverage-form { grid-template-columns:1fr; } .coverage-form .wide { grid-column:auto; } }
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --bg:#141b24; --panel:#1c2632; --ink:#e3eaf3; --muted:#a6b6c9; --line:#344253; --accent:#83b9fa; } }
+@media (max-width:1150px) { main { grid-template-columns:minmax(0,1fr); } .side { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:700px) { header { padding:20px 16px; } main,.tabs { padding-left:16px; padding-right:16px; } .panel { padding:16px; } .side { grid-template-columns:1fr; } .metric { padding:8px; } .metric strong { font-size:22px; } }
+</style>
 </head>
-<body>
+<body data-view="runtime">
 <header>
-  <h1>Engine tuning map</h1>
-  <span class="meta" id="machineMeta">loading…</span>
+  <div><div class="eyebrow">Sub0LlmEngine / local inference lab</div><h1>Engine tuning map</h1>
+  <p class="intro">Choose the tradeoff. See the evidence that supports it.</p>
+  <span class="meta" id="machineMeta">loading…</span></div>
   <label style="margin-left:auto">Machine <select id="machineSel"></select></label>
 </header>
+<nav class="tabs" aria-label="Tuning views">
+  <button data-tab="runtime" aria-pressed="true">Runtime explorer</button>
+  <button data-tab="map" aria-pressed="false">Benchmark map</button>
+  <button data-tab="history" aria-pressed="false">Run history</button>
+</nav>
 <main>
+  <div class="statusbar" role="status"><b id="liveState">Connecting</b><span id="liveSummary">Reading benchmark history and job status…</span></div>
   <div style="display:grid; gap:14px; min-width:0">
-    <section class="panel">
+    <section class="panel" data-view="runtime">
+      <h2>Find your operating point</h2>
+      <p class="note">Set priorities, then choose among configurations this machine has actually measured. Context means tested prompt depth per sequence.</p>
+      <div class="hero">
+        <div class="hero-shape">
+          <div class="tri-stage">
+          <figure class="pyramid-inset"><svg id="pyramid" viewBox="-62 -60 124 120" role="group" aria-label="View widget: drag to turn the pyramid, click a face to look at that slice"></svg>
+            <figcaption><span>Drag to turn · click a face</span><span class="cam-buttons"><button type="button" class="ghost" data-cam="flat" title="Look straight at the slice">Face-on</button><button type="button" class="ghost" data-cam="tilt" title="Tilted 3D view">3D</button></span></figcaption></figure>
+          <svg id="preferenceTriangle" viewBox="0 0 600 530" role="img" aria-label="Decision triangle: speed at the top, context at the bottom left, concurrency at the bottom right; shaded regions show which measured configuration wins for each mix of priorities. Use the sliders or preset buttons for keyboard control."></svg>
+          </div>
+          <div id="triangleLegend" class="legend"></div>
+          <div class="tri-controls">
+            <fieldset>
+              <legend><b>1</b> What matters most <span class="note">drag the dot, pick a preset, or set the weights</span></legend>
+              <div class="chips presets"><button class="ghost" data-preset="balanced">Balanced</button><button class="ghost" data-preset="speed">Speed</button><button class="ghost" data-preset="context">Context</button><button class="ghost" data-preset="concurrency">Concurrency</button><button class="ghost" data-preset="prefill">Prefill</button></div>
+              <div class="weights">
+                <label>Speed <input id="weightSpeed" type="range" min="0" max="100" value="34"><output id="shareSpeed">34%</output></label>
+                <label>Context <input id="weightContext" type="range" min="0" max="100" value="33"><output id="shareContext">33%</output></label>
+                <label>Concurrency <input id="weightConcurrency" type="range" min="0" max="100" value="33"><output id="shareConcurrency">33%</output></label>
+                <label>Prefill <input id="weightPrefill" type="range" min="0" max="100" value="0"><output id="sharePrefill">0%</output></label>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend><b>2</b> How the triangle is drawn <span class="note">four priorities make a pyramid; the triangle is one slice, moved by the held priority's slider</span></legend>
+              <div class="view-row">
+                <label>Face <select id="triView" aria-label="Which face of the priority pyramid the triangle shows">
+                  <option value="3">Speed · Context · Concurrency (prefill held)</option><option value="1">Speed · Concurrency · Prefill (context held)</option>
+                  <option value="2">Speed · Context · Prefill (concurrency held)</option><option value="0">Context · Concurrency · Prefill (speed held)</option></select></label>
+                <label>Speed means <select id="speedMetric"><option value="decode">Decode per sequence</option><option value="requestRate">Whole requests (prompt + output) per minute</option></select></label>
+              </div>
+                <p class="note" style="margin:0">Drag outside the slice, or use the corner widget, to turn the pyramid. Dragging on the slice still sets the priorities.</p>
+            </fieldset>
+            <fieldset>
+              <legend><b>3</b> Limit to one concurrency <span class="note">only configurations serving exactly this many requests at once; dimmed: not measured yet</span></legend>
+              <div id="concurrencySlices" class="chips slice-buttons" aria-label="Limit the recommendation to one concurrency"></div>
+            </fieldset>
+            <p class="note">Each shaded region is where one measured configuration wins; its label is its concurrency and tested prompt depth. More requirements: Evidence &amp; requirements, below.</p>
+          </div>
+        </div>
+        <div class="hero-side">
+          <div id="recommendation" aria-live="polite"></div>
+        </div>
+      </div>
+      <details class="reqs" id="engineAxes">
+        <summary><b>Engine knobs &amp; live change</b> <span class="note" id="axesSummary">reading the engine's axes definition…</span></summary>
+        <div class="scroll"><table id="axesTable" class="choices" aria-label="Engine knobs, when they can change, and whether a sequence's context survives a change"></table></div>
+        <p class="note">From <code>python -m sub0llmengine axes</code>. "Load" knobs need a restart. Context across a change: the spike
+        (<code>python -m sub0llmengine spike</code>) saves a slot's KV, restarts with the knob changed, restores it and compares the output.
+        <b>kept</b>: restored, reused and identical · <b>restored, not reused</b>: the KV came back intact but the server re-processed the prompt · <b>lost</b>: restore failed or output differed.</p>
+      </details>
+      <details class="reqs">
+        <summary><b>Evidence &amp; requirements</b> <span class="note" id="reqSummary"></span></summary>
+        <div class="reqs-grid">
+          <label>Evidence cohort <select id="cohort"></select></label>
+        <label>Generated tokens in benchmark <select id="evidenceNtg"></select></label>
+        <label>Evidence required <select id="repeatPolicy"><option value="1">At least one pass</option><option value="2">At least two passes</option><option value="3">At least three passes</option></select></label>
+          <label>Minimum context per slot<span style="display:flex;gap:4px"><select id="slotMode" aria-label="Slot minimum mode"><option value="auto">Auto: keep every measured concurrency</option><option value="off">Off</option><option value="custom">Custom</option></select><input id="slotContextMin" type="number" min="256" step="256" value="16384" disabled style="width:90px"></span><span class="note" id="slotNote"></span></label>
+          <label>Minimum prompt tokens <input id="minDepth" type="number" min="0" step="1" value="0"></label>
+          <label>Concurrency target <span style="display:flex;gap:4px"><input id="minConcurrency" type="number" min="1" step="1" value="1" style="width:70px"><select id="concurrencyMatch" aria-label="Concurrency matching"><option value="minimum">At least this many</option><option value="exact">Exactly this many</option></select></span></label>
+          <label>Minimum decode tok/s per sequence <input id="minSpeed" type="number" min="0" step="0.1" value="0"></label>
+          <label>Minimum prefill tok/s <input id="minPrefill" type="number" min="0" step="1" value="0"></label>
+        </div>
+        <p class="note">A slot minimum needs each slot's share of the context and the measured prompt + output to reach it: a speed measured at a short prompt is not evidence for a long one. Auto picks the largest standard window that keeps every measured concurrency.</p>
+      </details>
+      <div class="frontier">
+        <div class="controls"><h3 class="small-heading">Measured operating frontier</h3><label>Points <select id="frontierMode"><option value="frontier">Frontier only</option><option value="all">All eligible points</option></select></label><label>Projection <select id="projection"><option value="2d">2D · concurrency by colour</option><option value="3d">3D · three measured axes</option></select></label><label id="rotationControl" hidden>Rotate <input id="plotRotation" type="range" min="-75" max="75" value="30"></label></div>
+        <div id="frontierSummary" class="note"></div>
+        <svg id="frontierPlot" role="img" aria-label="Measured context depth versus decode speed; colour and size indicate concurrency"></svg>
+        <div id="frontierLegend" class="legend"></div>
+        <p class="note">Outlined points are on the frontier: no other eligible point is at least as good on all three axes and better on one. A ring marks your selection. Select a dot or a row to inspect it.</p>
+        <label>Ranked list <select id="rankGroup"><option value="concurrency">Best setting per concurrency</option><option value="workload">Best setting per concurrency and prompt depth</option><option value="all">Every point (near-duplicates included)</option></select></label>
+        <div class="scroll"><table id="rankedChoices" class="choices" aria-label="Ranked operating points"></table></div>
+        <details><summary>How selection works and what the data proves</summary><p class="note">Only non-excluded successes with complete settings qualify. Repeated runs of the exact settings, depth, concurrency and output length use median throughput. Any recorded failure at that exact point excludes it from recommendations. Each axis is scaled linearly between the eligible cohort’s measured minimum and maximum; your priorities weight those three scores. Scores are relative rankings, not confidence or predicted speed. Samples may be short, correlated or warm-up affected. A synthetic batched benchmark does not validate output quality, server overhead, live memory headroom, or performance at untested depths. VRAM is a whole-process-run peak and can cover several concurrency rows.</p></details>
+      </div>
+      <div class="coverage" id="coverageSection">
+        <h2>Explore beyond the measured region</h2>
+        <p class="note">A blank region is a question to benchmark, not a hardware limit. Choose any integer concurrency and extend prompt depth. Every cell describes an exact workload at the baseline settings below.</p>
+        <div class="coverage-form">
+          <label class="wide">Prompt depths to explore (tokens, comma separated)<input id="exploreDepths" value="16256,32768,65536,131072,262144"></label>
+          <label class="wide">Concurrencies to explore (comma separated)<input id="exploreBs" value="1,2,3,4,6,8,10,12,14,16"></label>
+          <label>Placement / compute baseline<select id="exploreBase"><option value="saved">Saved engine settings</option><option value="selected">Selected measured point</option></select></label>
+          <label>Output tokens per sequence<input id="exploreNtg" type="number" min="1" step="1" value="128"></label>
+          <label>Allocation ceiling, total tokens<input id="exploreCap" type="number" min="256" step="256" value="1048576"></label>
+          <label>Passes wanted per point<input id="exploreRepeats" type="number" min="1" max="5" value="2"></label>
+          <label>Maximum runs in this request<input id="exploreRuns" type="number" min="1" max="64" value="8"></label>
+          <label>Timeout per run (seconds)<input id="exploreTimeout" type="number" min="10" max="86400" value="900"></label>
+          <label class="wide">Failure / inference policy<select id="exploreVerify"><option value="skip">Leave observed failures and inferred OOM for review</option><option value="verify">Verify failures and OOM hypotheses with bounded retries</option></select></label>
+        </div>
+        <div class="actions"><button id="extendTargets" class="ghost">Add requirements + slot boundary</button><button id="planCoverage" class="ghost">Refresh coverage</button><button id="queueCoverage" disabled>Queue gap filling</button></div>
+        <p id="coverageSummary" class="note" role="status">Loading coverage…</p>
+        <div class="scroll"><table id="coverageGrid" aria-label="Requested context and concurrency coverage"></table></div>
+        <div id="coverageDetail" class="coverage-detail note">Select a cell to inspect its allocation, evidence and queue that point.</div>
+        <p class="note">✓ measured · ◔ repeats needed · ? unknown · OOM observed · OOM? inferred · ! conflicting/error · — outside your allocation/window limits. Context grows from the baseline allocation to hold at least the minimum slot window and prompt + output for every sequence. Workloads below the slot floor are outside this validation scope; shorter real requests remain allowed. A timeout is not an out-of-memory result.</p>
+        <details><summary>Question the benchmark</summary><p class="note">Are there enough repeats? Does the requested output length match the measured one? Were the machine, model and build the same? Could warm-up, memory pressure or another process explain a failure? This coverage planner answers identity/repeat questions directly and allows a bounded verification run for memory hypotheses. It does not certify quality at extended context, estimate speeds in unmeasured regions, or erase conflicting evidence.</p></details>
+      </div>
+    </section>
+    <section class="panel" data-view="map" hidden>
       <h2>Heatmap</h2>
       <div class="controls">
         <label>X axis <select id="xAxis"></select></label>
@@ -67,37 +288,55 @@ pre { white-space: pre-wrap; word-break: break-all; font-size: 11.5px; backgroun
         <label>Combine <select id="agg"><option value="best">best</option><option value="latest">latest</option><option value="median">median</option></select></label>
       </div>
       <div class="filters" id="filters"></div>
+      <div class="controls" style="border-top:1px dashed var(--line); padding-top:8px">
+        <label><span>Extra X values <button type="button" class="ghost guide" id="guideX" title="Suggest values for this axis">✦ suggest</button></span><input id="extraX" placeholder="e.g. 98304" style="width:130px"></label>
+        <label><span>Extra Y values <button type="button" class="ghost guide" id="guideY" title="Suggest values for this axis">✦ suggest</button></span><input id="extraY" placeholder="e.g. 30,33" style="width:130px"></label>
+        <button id="autoBtn">Auto-fill this view</button>
+        <button id="stopBtn" class="ghost">Stop</button>
+        <span class="note" id="planInfo"></span>
+      </div>
       <div class="scroll"><svg id="heat"></svg></div>
       <div class="legend" id="legend"></div>
+      <p class="note" id="levers"></p>
       <p class="note">Each cell combines every run matching its X, Y and the filters. Red cells failed (out of memory) at that point; grey ones errored. Click a cell to inspect its runs and use the configuration.</p>
     </section>
-    <section class="panel">
+    <section class="panel" data-view="map" hidden>
       <h2>Speed · context · concurrency</h2>
       <div class="controls">
         <label>Y <select id="triY"><option value="tgPerSeq">decode per sequence (tok/s)</option><option value="tgTps">decode, all sequences (tok/s)</option><option value="ppTps">prefill (tok/s)</option></select></label>
-        <label>X <select id="triX"><option value="depth">context depth per sequence</option><option value="ctxPerSeq">context budget per sequence (ctx ÷ B)</option><option value="ctx">total context</option></select></label>
+        <label>X <select id="triX"><option value="depth">context depth per sequence</option><option value="ctxPerSeq">equal share of allocation (ctx ÷ B)</option><option value="ctx">total context</option></select></label>
       </div>
       <div class="scroll"><svg id="tri"></svg></div>
-      <p class="note">One dot per successful run (filters above apply); colour and size show concurrency B. The upper-right edge for a given colour is the achievable trade-off.</p>
+      <p class="note">One dot per successful run (filters above apply); colour and size show concurrency B. The edge shows observed tradeoffs. Allocated context is not tested prompt depth.</p>
     </section>
-    <section class="panel">
+    <section class="panel" data-view="history" hidden>
       <h2>History</h2>
       <div class="scroll"><svg id="hist"></svg></div>
       <p class="note">Every run on this machine over time, for the heatmap's layer. Failures sit on the baseline.</p>
     </section>
   </div>
   <div class="side">
-    <section class="panel">
+    <section class="panel"><h2>Benchmark activity</h2><div id="benchmarkActivity" class="benchmark-status">Checking worker status…</div><p class="note">Heartbeat means the worker is reachable. CPU/output changes and new records are separate progress signals. A long prefill can be quiet.</p></section>
+    <section class="panel" data-view="map" hidden>
       <h2>Selection</h2>
       <div id="selInfo" class="note">Click a heatmap cell.</div>
       <div class="scroll"><table id="selTable"></table></div>
       <div id="selActions" style="margin-top:8px; display:none">
-        <button id="applyBtn">Use this configuration</button>
+        <button id="applyBtn">Save for next engine start</button>
         <span class="note" id="applyMsg"></span>
+      </div>
+      <div id="drill" style="margin-top:12px; display:none">
+        <h3 class="small-heading">Explore around this point</h3>
+        <p class="note" id="drillBase"></p>
+        <div id="drillAxes"></div>
+        <button id="drillBtn">Auto-fill around this point</button> <span class="note" id="drillMsg"></span>
+        <p class="note">One auto-fill job per ticked axis, each varying that axis alone with everything else held at this run's
+          settings, so the jobs show which lever moves this point and by how much. Out-of-memory edges are inferred and probed
+          as usual. Re-select a better neighbour afterwards and drill again to climb towards the best point.</p>
       </div>
     </section>
     <section class="panel">
-      <h2>Current configuration</h2>
+      <h2>Engine &amp; saved settings</h2>
       <div id="cfgInfo" class="note">…</div>
       <pre id="cfgCmd"></pre>
     </section>
@@ -121,15 +360,179 @@ pre { white-space: pre-wrap; word-break: break-all; font-size: 11.5px; backgroun
   </div>
 </main>
 <div id="tip"></div>
+<script id="selection-core">
+// Pure evidence selection; exercised independently by tests/tuning-selection.test.cjs.
+// Kept inline so an already-running server can serve the upgrade without losing its queue.
+const TuningEvidence = (() => {
+  // The knobs that identify a measured point, per backend. The server's axes definition (/api/axes) replaces this
+  // fallback through useAxes(), so a new backend needs no page change.
+  const backendKnobs = {llamacpp:['nCpuMoe','ctx','ubatch','batch','threads','cacheTypeK','cacheTypeV','flashAttn','kvUnified','mmap','gpuLayers']};
+  function useAxes(def) { if (def && def.backend && Array.isArray(def.identity) && def.identity.length) backendKnobs[def.backend] = [...def.identity]; }
+  const stable = value => JSON.stringify(value, Object.keys(value).sort());
+  const cohortKey = r => JSON.stringify([r.machine, r.backend, r.model, r.build]);
+  const pointKey = r => JSON.stringify([cohortKey(r), stable(r.params || {}), r.depth, r.B, r.ntg]);
+  const median = values => { const a = [...values].sort((x,y) => x-y), n = a.length; return n % 2 ? a[n>>1] : (a[n/2-1]+a[n/2])/2; };
+  const positive = x => Number.isFinite(x) && x > 0;
+  function complete(r) {
+    const keys=backendKnobs[r.backend];
+    return keys && r.params && [r.machine,r.backend,r.model,r.build].every(x => typeof x === 'string' && x.length) &&
+      keys.every(k => r.params[k] !== undefined && r.params[k] !== null) &&
+      [r.depth,r.B,r.ntg,r.params.ctx].every(x => Number.isInteger(x) && x > 0) &&
+      r.B * (r.depth+r.ntg) <= r.params.ctx;
+  }
+  function points(records, cohort, ntg, minPasses = 1) {
+    const groups = new Map();
+    for (const r of records) {
+      if (r.excluded || cohortKey(r) !== cohort || r.ntg !== ntg || !complete(r)) continue;
+      const key = pointKey(r);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    }
+    const accepted = []; let conflicts = 0, insufficient = 0, failed = 0, mixed = 0, healed = 0;
+    for (const [key, all] of groups) {
+      // A failure heals when the server marks it superseded, or when two later passes of this exact point worked:
+      // a single glitch (another process on the GPU, a driver hiccup) must not withhold a point for good.
+      const healedBy = f => f.superseded || new Set(all.filter(r => r.outcome === 'ok' && String(r.ts) > String(f.ts)).map(r => r.ts)).size >= 2;
+      const bad = all.filter(r => r.outcome !== 'ok'), live = bad.filter(f => !healedBy(f));
+      if (live.length) { conflicts++; if (live.length === all.length) failed++; else mixed++; continue; }
+      if (bad.length) healed++;
+      const rows = all.filter(r => r.outcome === 'ok');
+      if (rows.some(r => !positive(r.tgTps))) { insufficient++; continue; }
+      const ok = rows.filter(r => positive(r.tgTps));
+      if (ok.length < minPasses) { insufficient++; continue; }
+      const record = [...ok].sort((a,b) => String(b.ts).localeCompare(String(a.ts)))[0];
+      const speeds = ok.map(r => r.tgTps / r.B);
+      const pp = ok.filter(r => positive(r.ppTps));
+      // All B requests arriving together: prompts take B*depth/prefill, then ntg tokens at the per-sequence decode rate.
+      const seconds = pp.length ? median(pp.map(r => r.B * r.depth / r.ppTps + r.ntg * r.B / r.tgTps)) : null;
+      accepted.push({key, record, rows:ok, speed:median(speeds), decode:median(speeds), total:median(ok.map(r=>r.tgTps)),
+        prefill: pp.length ? median(pp.map(r => r.ppTps)) : null, requestSeconds: seconds, requestRate: seconds ? 60 / seconds : null,
+        depth:record.depth, concurrency:record.B, low:Math.min(...speeds), high:Math.max(...speeds)});
+    }
+    return {accepted, conflicts, insufficient, failed, mixed, healed};
+  }
+  // Requirements are a registry of filters, each turning a constraints object into the reasons a point fails it. rank(),
+  // misses() and the page all read the same list; addFilter() extends it (a VRAM ceiling, a prefill floor, ...).
+  const FILTERS = [
+    {id:'depth', label:'Minimum prompt tokens', miss:(p,c) => c.depth && p.depth < c.depth ? ['prompt below the minimum'] : []},
+    {id:'concurrency', label:'Concurrency target', miss:(p,c) => (c.exactConcurrency ? p.concurrency !== c.concurrency : p.concurrency < (c.concurrency || 1)) ? ['concurrency'] : []},
+    {id:'speed', label:'Minimum decode tok/s per sequence', miss:(p,c) => c.speed && p.decode < c.speed ? ['decode below the minimum'] : []},
+    {id:'prefill', label:'Minimum prefill tok/s', miss:(p,c) => c.prefill && !(p.prefill >= c.prefill) ? ['prefill below the minimum'] : []},
+    {id:'minSlotContext', label:'Minimum context per slot', miss:(p,c) => {
+      const slot = c.minSlotContext || 0, out = [];
+      if (p.record.params.ctx / p.concurrency < slot) out.push('allocation per slot below the slot minimum');
+      if (p.depth + p.record.ntg < slot) out.push('measured at a shallower prompt than the slot minimum');
+      return out;
+    }},
+  ];
+  function addFilter(filter) {
+    if (!filter || typeof filter.id !== 'string' || typeof filter.miss !== 'function') throw new Error('a filter needs an id and a miss(point, constraints) function');
+    const i = FILTERS.findIndex(f => f.id === filter.id);
+    if (i >= 0) FILTERS[i] = filter; else FILTERS.push(filter);
+    return FILTERS;
+  }
+  function misses(p, c) { return FILTERS.flatMap(f => f.miss(p, c)); }
+  // The slot minimum when left on auto: the largest standard window at which every concurrency that passes the other
+  // requirements keeps at least one measured point, so the default never hides recorded data. 0 when even 256 would.
+  const SLOT_STEPS = [32768, 16384, 8192, 4096, 2048, 1024, 512, 256];
+  function autoSlot(points, c) {
+    const base = {...c, minSlotContext: 0};
+    const pass = points.filter(p => misses(p, base).length === 0);
+    const bs = [...new Set(pass.map(p => p.concurrency))];
+    if (!bs.length) return 0;
+    for (const slot of SLOT_STEPS) {
+      const ok = new Set(pass.filter(p => misses(p, {...base, minSlotContext: slot}).length === 0).map(p => p.concurrency));
+      if (bs.every(b => ok.has(b))) return slot;
+    }
+    return 0;
+  }
+  // What "speed" means on the triangle: decode per sequence, prefill, or whole requests (prompt + output) per minute.
+  const SPEED_METRICS = {decode:'decode tok/s per sequence', prefill:'prefill tok/s', requestRate:'requests per minute per sequence (prompt + output)'};
+  // Ranking. Each axis is scaled on a log scale (doubling concurrency or depth is one equal step, so 2..7 are not squeezed
+  // next to 1) and points are scored by an augmented Chebyshev rule: the weighted shortfall of the worst axis, plus a small
+  // weighted sum to break ties. Unlike a plain weighted sum, which can only ever pick the corners of a curved frontier
+  // (B=1 or B=16 along the speed-concurrency edge), every frontier point is the best for some weights, so moving the
+  // triangle steps through the measured concurrencies and depths in order.
+  const RHO = 0.05;
+  // Ranking axes, in weight order. Prefill is an axis of its own (ubatch trades it against context and memory); a point
+  // without a prefill measurement scores the bottom of that axis. More axes extend this list and the weights.
+  const AXES3 = ['speed','depth','concurrency','prefill'];
+  const val = (p, k) => k === 'prefill' ? (positive(p.prefill) ? p.prefill : 0) : p[k];
+  // Eligible points with their log-normalized axes, ready to score under any weights (the triangle scores hundreds).
+  function prepare(points, constraints) {
+    const metric = constraints.speedMetric && SPEED_METRICS[constraints.speedMetric] ? constraints.speedMetric : 'decode';
+    const eligible = points.filter(p => misses(p, constraints).length === 0)
+      .map(p => ({...p, speed: p[metric]})).filter(p => positive(p.speed));
+    const logs = eligible.map(p => AXES3.map(k => val(p, k) > 0 ? Math.log(val(p, k)) : NaN));
+    const ranges = AXES3.map((_, i) => { const f = logs.map(l => l[i]).filter(Number.isFinite); return f.length ? [Math.min(...f), Math.max(...f)] : [0, 0]; });
+    const norm = logs.map(l => l.map((v, i) => { if (!Number.isFinite(v)) return 0; const [lo,hi] = ranges[i]; return hi > lo ? (v-lo)/(hi-lo) : 1; }));
+    return {metric, eligible, norm};
+  }
+  function shares(weights) {
+    const w = AXES3.map((_, i) => +weights[i] || 0), sum = w.reduce((a,b)=>a+b,0);
+    return sum ? w.map(x => x/sum) : AXES3.map((_, i) => i < 3 ? 1/3 : 0);  // all zero: the three original axes, balanced
+  }
+  function scoreOf(n, sh) {
+    const worst = Math.max(...n.map((v, i) => sh[i] * (1 - v))), total = n.reduce((t, v, i) => t + sh[i] * v, 0);
+    return (1 - worst + RHO * total) / (1 + RHO);
+  }
+  // The best point for given weights, without sorting everything (ties: more passes, then key).
+  function best(prep, weights) {
+    const sh = shares(weights);
+    let top = null, topScore = -Infinity;
+    prep.eligible.forEach((p, j) => {
+      const sc = scoreOf(prep.norm[j], sh);
+      if (sc > topScore + 1e-12 || (Math.abs(sc - topScore) <= 1e-12 && top && (p.rows.length > top.rows.length || (p.rows.length === top.rows.length && p.key < top.key)))) { top = p; topScore = sc; }
+    });
+    return top;
+  }
+  function rank(points, weights, constraints) {
+    const prep = prepare(points, constraints), {eligible, norm, metric} = prep, sh = shares(weights);
+    const frontier = eligible.filter(p => !eligible.some(q => AXES3.every(k=>val(q,k)>=val(p,k)) && AXES3.some(k=>val(q,k)>val(p,k))));
+    const scored = eligible.map((p, j) => ({...p, frontier:frontier.includes(p), metric, score:scoreOf(norm[j], sh)}));
+    return scored.sort((a,b)=>b.score-a.score || Number(b.frontier)-Number(a.frontier) || b.rows.length-a.rows.length || a.key.localeCompare(b.key));
+  }
+  // The ranked list without near-duplicates: the best-scoring point per concurrency (or per concurrency and depth).
+  function bestPer(ranked, by) {
+    if (by === 'all') return ranked;
+    const seen = new Set();
+    return ranked.filter(p => { const k = by === 'workload' ? p.concurrency + '|' + p.depth : String(p.concurrency); if (seen.has(k)) return false; seen.add(k); return true; });
+  }
+  // Coverage gaps that silently limit the ranking: concurrencies measured at only one depth, and the depths each lacks.
+  function coverage(points) {
+    const depthsByB = new Map();
+    for (const p of points) depthsByB.set(p.concurrency, new Set([...(depthsByB.get(p.concurrency) || []), p.depth]));
+    const allDepths = [...new Set(points.map(p => p.depth))].sort((a, b) => a - b);
+    const thin = [...depthsByB].filter(([, d]) => d.size === 1).map(([b, d]) => ({concurrency: b, depth: [...d][0]})).sort((a, b) => a.concurrency - b.concurrency);
+    const missing = [...depthsByB].map(([b, d]) => ({concurrency: b, depths: allDepths.filter(x => !d.has(x))})).filter(x => x.depths.length).sort((a, b) => a.concurrency - b.concurrency);
+    return {thin, missing, depths: allDepths};
+  }
+  function profile(point, weights, requirements={}) {
+    const r = point.record;
+    return {schema:'sub0llmengine.measured-selection.v1', identity:{machine:r.machine,backend:r.backend,model:r.model,build:r.build},
+      engineConfig:{backend:r.backend,model:r.model,...r.params,slots:r.B,squadCtx:r.depth+r.ntg},
+      consumerBudget:{maxConcurrentRequests:r.B,maxPromptTokens:r.depth,maxOutputTokens:r.ntg,maxTotalTokens:r.depth+r.ntg},
+      evidence:{kind:'synthetic-batched-benchmark',depth:r.depth,concurrency:r.B,generatedTokens:r.ntg,
+        medianDecodePerSequence:point.decode ?? point.speed,medianPrefill:point.prefill ?? null,medianDecodeTotal:point.total,decodePerSequenceRange:[point.low,point.high],
+        samples:point.rows.map(x=>({timestamp:x.ts,note:x.note || '',tgTps:x.tgTps,peakVramMiB:x.peakVramMiB ?? null}))},
+      preferenceWeights:weights,requirements,activation:{automatic:false,requiresServerValidation:true,restartRequired:true},
+      limitations:['Measured at the recorded depth and concurrency; no interpolation or live performance guarantee.',
+        'Verify model, engine binary and host identity before applying; build labels are not binary hashes.',
+        'Validate real server requests, output quality and current memory headroom before promotion.']};
+  }
+  return {cohortKey,pointKey,complete,points,prepare,best,rank,useAxes,AXES:AXES3,misses,FILTERS,addFilter,autoSlot,bestPer,coverage,profile,median,SPEED_METRICS};
+})();
+</script>
 <script>
 const AXES = {
-  nCpuMoe: { label: "CPU MoE layers", get: r => r.params.nCpuMoe },
+  nCpuMoe: { label: "CPU MoE layers", get: r => r.params.nCpuMoe,
+    fmt: v => { const n = CONFIG && CONFIG.facts && (CONFIG.facts.expertLayers || CONFIG.facts.blockCount); return n && v > n ? v + " (=" + n + ")" : v; } },
   ctx: { label: "total context", get: r => r.params.ctx, fmt: v => v >= 1024 ? (v / 1024) + "k" : v },
   B: { label: "concurrency B", get: r => r.B },
   depth: { label: "depth per sequence", get: r => r.depth, fmt: v => v >= 1024 ? (v / 1024) + "k" : v },
   ubatch: { label: "ubatch", get: r => r.params.ubatch },
   batch: { label: "batch", get: r => r.params.batch },
-  threads: { label: "threads", get: r => r.params.threads },
+  threads: { label: "threads", get: r => r.params.threads, fmt: v => v === -1 ? "auto" : v },
   ntg: { label: "tokens generated", get: r => r.ntg },
   kv: { label: "KV cache type", get: r => r.params.cacheTypeK + "/" + r.params.cacheTypeV },
   model: { label: "model", get: r => r.model, fmt: v => String(v).split("#").pop() },
@@ -146,10 +549,16 @@ const LAYERS = {
 let DATA = { records: [], machine: null, machines: [] };
 let filters = {};
 let selected = null;
+let CONFIG = null, JOBS = null, runtimePick = null, runtimeRows = [], runtimeWeights = [30,30,30,10];
+let activeView = 'runtime', historyRequest = 0;
+let coveragePlan=null, coverageSpec=null, coverageTimer=null, coverageRequest=0, coverageSignature='', coverageRevision=0, coverageCell=null;
+let previousActivity=null, lastRecordObserved=null, lastHistoryCount=null;
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fmtNum = v => v == null ? "–" : (Math.abs(v) >= 100 ? Math.round(v) : (+v).toFixed(1));
 const axisFmt = (a, v) => AXES[a].fmt ? AXES[a].fmt(v) : String(v);
+const esc = text => String(text ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tokens = n => n >= 1024 ? `${+(n/1024).toFixed(1)}k` : String(n);
 function uniq(a) { return [...new Set(a)].sort((x, y) => (typeof x === "number" && typeof y === "number") ? x - y : String(x).localeCompare(String(y))); }
 
 function viridis(t) {
@@ -185,9 +594,9 @@ function filtered(exclude) {
 }
 function combine(vals, how, recs) {
   if (!vals.length) return null;
-  if (how === "best") return Math.max(...vals);
+  if (how === "best") return LAYERS[$("layer").value].invert ? Math.min(...vals) : Math.max(...vals);
   if (how === "latest") { let best = 0; recs.forEach((r, i) => { if (r.ts > recs[best].ts) best = i; }); return vals[best]; }
-  const s = [...vals].sort((a, b) => a - b); return s[Math.floor(s.length / 2)];
+  return TuningEvidence.median(vals);
 }
 
 function buildControls() {
@@ -219,7 +628,7 @@ function renderFilters() {
 function renderHeat() {
   const x = $("xAxis").value, y = $("yAxis").value, L = LAYERS[$("layer").value], how = $("agg").value;
   const recs = filtered([x, y]);
-  const xs = uniq(recs.map(r => AXES[x].get(r))), ys = uniq(recs.map(r => AXES[y].get(r))).reverse();
+  const xs = uniq([...recs.map(r => AXES[x].get(r)), ...extraValues("extraX")]), ys = uniq([...recs.map(r => AXES[y].get(r)), ...extraValues("extraY")]).reverse();
   const cells = new Map();
   for (const r of recs) {
     const k = AXES[x].get(r) + "|" + AXES[y].get(r);
@@ -234,8 +643,13 @@ function renderHeat() {
     if ($("layer").value === "outcome") v = rs.filter(r => r.outcome === "ok").length / rs.length;
     else if ($("layer").value === "runs") v = rs.length;
     else v = combine(use.map(L.get).filter(n => n != null), how, use.filter(r => L.get(r) != null));
-    const fails = rs.filter(r => r.outcome !== "ok");
-    info.set(k, { v, rs, fails, oom: fails.some(r => r.outcome === "oom") });
+    const fails = rs.filter(r => r.outcome !== "ok" && !r.superseded);  // superseded: later successes erased it
+    // settings the view leaves open ("any") that differ between the cell's runs: its value may come from other conditions
+    // (engine settings only: a cell spanning workloads, B or depth or output length, is what "combine" is for)
+    const mixed = ["ubatch", "batch", "threads", "kv", "model", "build"].filter(a => a !== x && a !== y && (filters[a] === "*" || !(a in filters)))
+      .map(a => [a, uniq(rs.map(AXES[a].get).filter(z => z != null))]).filter(([, vs]) => vs.length > 1);
+    const src = v != null && how !== "mean" && how !== "median" ? use.find(r => L.get(r) === v) : null;  // the run the value came from
+    info.set(k, { v, rs, fails, oom: fails.some(r => r.outcome === "oom"), mixed, src });
     if (v != null) values.push(v);
   }
   const lo = Math.min(...values), hi = Math.max(...values);
@@ -248,13 +662,29 @@ function renderHeat() {
   const pat = el("pattern", { id: "hatch", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
   el("rect", { width: 6, height: 6, fill: css("--oom"), opacity: .25 }, pat);
   el("line", { x1: 0, y1: 0, x2: 0, y2: 6, stroke: css("--oom"), "stroke-width": 2.5 }, pat);
+  const pat2 = el("pattern", { id: "hatchLight", width: 8, height: 8, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+  el("line", { x1: 0, y1: 0, x2: 0, y2: 8, stroke: css("--oom"), "stroke-width": 1, "stroke-opacity": .5 }, pat2);
   ys.forEach((yv, j) => { const t = el("text", { x: ml - 6, y: mt + j * ch + ch / 2 + 4, "text-anchor": "end" }, svg); t.textContent = axisFmt(y, yv); });
   xs.forEach((xv, i) => { const t = el("text", { x: ml + i * cw + cw / 2, y: mt + ys.length * ch + 15, "text-anchor": "middle" }, svg); t.textContent = axisFmt(x, xv); });
   const xl = el("text", { x: ml + xs.length * cw / 2, y: H - 6, "text-anchor": "middle", class: "muted" }, svg); xl.textContent = AXES[x].label;
   const yl = el("text", { x: 10, y: mt + ys.length * ch / 2, "text-anchor": "middle", class: "muted", transform: `rotate(-90 10 ${mt + ys.length * ch / 2})` }, svg); yl.textContent = AXES[y].label;
   ys.forEach((yv, j) => xs.forEach((xv, i) => {
     const k = xv + "|" + yv, c = info.get(k);
-    if (!c) return;
+    if (!c) {
+      const p = PLAN.cells.get(k);
+      if (!p) return;
+      const g = el("g", {}, svg);
+      const oom = p === "oom", pr = PLAN.probes.get(k);
+      el("rect", { x: ml + i * cw + 2, y: mt + j * ch + 2, width: cw - 4, height: ch - 4, rx: 3, fill: oom ? "url(#hatchLight)" : "none",
+        stroke: pr ? css("--sel") : oom ? css("--oom") : css("--muted"), "stroke-dasharray": "3 3", "stroke-opacity": pr ? 1 : .7, "stroke-width": pr ? 2 : 1 }, g);
+      const t = el("text", { x: ml + i * cw + cw / 2, y: mt + j * ch + ch / 2 + 4, "text-anchor": "middle", class: "muted" }, g);
+      t.textContent = pr ? "edge ◇" : oom ? "OOM?" : p === "ok" ? "fits?" : "?";
+      g.onmousemove = ev => tip(pr ? "Inferred to run out of memory, but beside a configuration that worked: auto-fill runs it to prove where the edge is (" + pr.join("; ") + ")." : oom ? "Not measured: inferred to run out of memory (a run needing no more memory did). Auto-fill skips it."
+        : p === "ok" ? "Not measured: a run needing at least as much memory worked, so this fits. Auto-fill will measure its speed."
+        : "Not measured, and nothing yet says whether it fits. Auto-fill measures these first, starting where one result settles the most others.", ev);
+      g.onmouseleave = () => tip(null);
+      return;
+    }
     const g = el("g", { class: "cell" }, svg);
     let fill, label = "", tcol = css("--ink");
     if (c.v == null) { fill = c.oom ? "url(#hatch)" : css("--err"); label = c.oom ? "OOM" : "err"; tcol = c.oom ? css("--oom") : "#fff"; }
@@ -262,16 +692,64 @@ function renderHeat() {
     else { const t = L.invert ? 1 - norm(c.v) : norm(c.v); fill = viridis(t); label = fmtNum(c.v); tcol = textOn(t); }
     el("rect", { class: "bg", x: ml + i * cw + 1, y: mt + j * ch + 1, width: cw - 2, height: ch - 2, rx: 3, fill }, g);
     const t = el("text", { x: ml + i * cw + cw / 2, y: mt + j * ch + ch / 2 + 4, "text-anchor": "middle", style: `fill:${tcol}` }, g);
-    t.textContent = label + (c.fails.length && c.v != null && $("layer").value !== "outcome" ? " !" : "");
+    t.textContent = label + (c.fails.length && c.v != null && $("layer").value !== "outcome" ? " !" : "") + (c.mixed.length ? " ≈" : "");
+    const fl = PLAN.flags.get(k), pr = PLAN.probes.get(k);
+    if (pr && !fl) {
+      el("rect", { x: ml + i * cw + 3, y: mt + j * ch + 3, width: cw - 6, height: ch - 6, rx: 3, fill: "none", stroke: css("--sel"), "stroke-width": 2, "stroke-dasharray": "4 2" }, g);
+      const m = el("text", { x: ml + (i + 1) * cw - 8, y: mt + j * ch + 12, "text-anchor": "end", style: `fill:${css("--sel")};font-size:11px;font-weight:700` }, g);
+      m.textContent = "◇";
+    }
+    if (fl) {
+      el("rect", { x: ml + i * cw + 3, y: mt + j * ch + 3, width: cw - 6, height: ch - 6, rx: 3, fill: "none", stroke: "#f0a020", "stroke-width": 2, "stroke-dasharray": fl.retry ? "4 2" : "none" }, g);
+      const m = el("text", { x: ml + (i + 1) * cw - 8, y: mt + j * ch + 12, "text-anchor": "end", style: "fill:#f0a020;font-size:11px;font-weight:700" }, g);
+      m.textContent = "↻";
+    }
     if (selected && selected.k === k) el("rect", { x: ml + i * cw + 1, y: mt + j * ch + 1, width: cw - 2, height: ch - 2, rx: 3, fill: "none", stroke: css("--sel"), "stroke-width": 2 }, g);
-    g.onmousemove = ev => tip(`<b>${AXES[x].label} ${axisFmt(x, xv)} · ${AXES[y].label} ${axisFmt(y, yv)}</b><br>${c.rs.length} run(s), ${c.fails.length} failed<br>${L.label}: ${fmtNum(c.v)}`, ev);
+    g.onmousemove = ev => tip(`<b>${AXES[x].label} ${axisFmt(x, xv)} · ${AXES[y].label} ${axisFmt(y, yv)}</b><br>${c.rs.length} run(s), ${c.fails.length} failed<br>${L.label}: ${fmtNum(c.v)}` +
+      (c.mixed.length ? `<br>≈ mixes runs under different settings: ${c.mixed.map(([a, vs]) => AXES[a].label + " " + vs.map(z => axisFmt(a, z)).join("/")).join(", ")}` +
+        (c.src ? `<br>this value: ${c.mixed.map(([a]) => AXES[a].label + " " + axisFmt(a, AXES[a].get(c.src))).join(", ")}` : "") + "<br>(set those filters to compare like with like)" : "") +
+      (pr ? `<br><span style="color:${css("--sel")}">◇ edge probe:</span> at the view's settings (${pr.join("; ")}) this is inferred to run out of memory beside a configuration that worked; auto-fill runs it to prove the edge` : "") +
+      (fl ? `<br><span style="color:#f0a020">&#8635; ${fl.retry ? "outlier, auto-fill retries it" : "outlier"}:</span><br>` + fl.reasons.join("<br>") : ""), ev);
     g.onmouseleave = () => tip(null);
     g.onclick = () => { selected = { k, x, y, xv, yv, rs: c.rs }; renderSelection(); renderHeat(); };
   }));
+  renderLevers(recs, L, x, y);
   const lg = $("legend");
   if ($("layer").value === "outcome") lg.innerHTML = `<span><span class="sw" style="background:${css("--ok")}"></span>works</span><span><span class="sw" style="background:${css("--oom")}"></span>out of memory</span><span><span class="sw" style="background:${css("--err")}"></span>mixed / error</span>`;
-  else if (values.length) lg.innerHTML = `<span>${L.label}</span><span>${fmtNum(L.invert ? hi : lo)}</span><span class="bar" style="background:linear-gradient(90deg,${[0, .25, .5, .75, 1].map(viridis).join(",")})"></span><span>${fmtNum(L.invert ? lo : hi)}</span><span>· “!” = some runs in the cell failed</span>`;
+  else if (values.length) lg.innerHTML = `<span>${L.label}</span><span>${fmtNum(L.invert ? hi : lo)}</span><span class="bar" style="background:linear-gradient(90deg,${[0, .25, .5, .75, 1].map(viridis).join(",")})"></span><span>${fmtNum(L.invert ? lo : hi)}</span><span>· “!” = some runs in the cell failed · <span style="color:#f0a020">&#8635;</span> = outlier (dashed: auto-fill retries it) · <span style="color:${css("--sel")}">◇</span> = edge probe · “≈” = runs under different settings (open filters) share the cell</span>`;
   else lg.textContent = "No runs match the filters.";
+}
+
+// Levers: engine settings left open ("any") in this view, each value's effect on the layer against the most common value,
+// measured only between runs that match on everything else (settings, depth, B, output length). A paired comparison, so a
+// setting tried at few points says little: n is shown.
+const LEVER_KEYS = ["ubatch", "batch", "threads", "kv"];
+function renderLevers(recs, L, x, y) {
+  const out = [];
+  const ok = recs.filter(r => r.outcome === "ok" && L.get(r) != null);
+  for (const a of LEVER_KEYS) {
+    if (a === x || a === y || (a in filters && filters[a] !== "*")) continue;
+    const vals = uniq(ok.map(AXES[a].get).filter(v => v != null));
+    if (vals.length < 2) continue;
+    const count = v => ok.filter(r => AXES[a].get(r) === v).length;
+    const base = vals.reduce((m, v) => count(v) > count(m) ? v : m, vals[0]);
+    const rest = r => { const p = { ...r.params }; delete p[a]; if (a === "kv") { delete p.cacheTypeK; delete p.cacheTypeV; } return JSON.stringify([p, r.depth, r.B, r.ntg, r.model, r.build]); };
+    const baseBy = new Map();
+    ok.filter(r => AXES[a].get(r) === base).forEach(r => { const k = rest(r); baseBy.set(k, [...(baseBy.get(k) || []), L.get(r)]); });
+    const med = v => { const s = [...v].sort((p, q) => p - q); return s[Math.floor(s.length / 2)]; };
+    const parts = [];
+    for (const v of vals) {
+      if (v === base) continue;
+      const ratios = [];
+      ok.filter(r => AXES[a].get(r) === v).forEach(r => { const b = baseBy.get(rest(r)); if (b) ratios.push(L.get(r) / med(b)); });
+      if (!ratios.length) { parts.push(`${axisFmt(a, v)}: no matching ${axisFmt(a, base)} runs to compare`); continue; }
+      const pct = Math.round((med(ratios) - 1) * 100);
+      parts.push(`<b>${axisFmt(a, v)}</b> ${pct >= 0 ? "+" : ""}${pct}% (${ratios.length} paired)`);
+    }
+    out.push(`<b>${AXES[a].label}</b> against ${axisFmt(a, base)}: ${parts.join(", ")}`);
+  }
+  $("levers").innerHTML = out.length ? `Levers left open in this view (${L.label}, median of paired runs): ` + out.join(" · ") +
+    `. Set a filter to hold one fixed, or put it on an axis and auto-fill it.` : "";
 }
 
 function renderSelection() {
@@ -284,19 +762,79 @@ function renderSelection() {
   const okRuns = rs.filter(r => r.outcome === "ok");
   let pick = okRuns.sort((a, b) => (b.tgTps || 0) - (a.tgTps || 0))[0];
   const act = $("selActions"); act.style.display = pick ? "block" : "none";
-  const choose = r => { pick = r; $("applyMsg").textContent = `ncmoe ${r.params.nCpuMoe}, ctx ${r.params.ctx}, slots ${r.B}, ub ${r.params.ubatch}, t ${r.params.threads}`; };
+  const choose = r => {
+    pick = r;
+    const busy=!JOBS || JOBS.current || JOBS.queue.length || !CONFIG || CONFIG.running;
+    const cfgModel=CONFIG?.command?.[CONFIG.command.indexOf('-m')+1]?.replaceAll('\\','/').split('/').pop();
+    const same=r.machine===DATA.machine?.id && r.backend===(CONFIG?.config.backend || 'llamacpp') && r.model.split('#').pop()===cfgModel;
+    $("applyBtn").disabled=!!busy || !same || !TuningEvidence.complete(r);
+    $("applyMsg").textContent = busy ? 'Saving is paused while the engine or benchmark queue is active.' : !same ? 'Historical machine/model: select a matching local engine before saving.' : `ncmoe ${r.params.nCpuMoe}, ctx ${r.params.ctx}, slots ${r.B}, ub ${r.params.ubatch}, t ${r.params.threads}. Revalidate the engine build before starting.`;
+  };
   if (pick) choose(pick);
+  renderDrill(() => pick);
   $("selTable").querySelectorAll("tr[data-i]").forEach(tr => {
     const r = rs[+tr.dataset.i];
     tr.onmousemove = ev => tip(describe(r), ev); tr.onmouseleave = () => tip(null);
-    tr.onclick = () => { if (r.outcome === "ok") choose(r); };
+    tr.onclick = () => { if (r.outcome === "ok") { choose(r); renderDrill(() => pick); } };
   });
   $("applyBtn").onclick = async () => {
+    if($("applyBtn").disabled) return;
+    const fresh=await (await fetch('/api/jobs')).json();
+    if(fresh.error || fresh.current || fresh.queue?.length) { $("applyMsg").textContent='The benchmark queue is active; settings were not saved.'; return; }
     const p = pick.params;
-    const body = { nCpuMoe: p.nCpuMoe, ctx: p.ctx, ubatch: p.ubatch, batch: p.batch, threads: p.threads, cacheTypeK: p.cacheTypeK, cacheTypeV: p.cacheTypeV, kvUnified: p.kvUnified, slots: pick.B };
+    const body = { ...p, slots: pick.B, squadCtx: pick.depth+pick.ntg };
     const res = await (await fetch("/api/apply", { method: "POST", body: JSON.stringify(body) })).json();
     $("applyMsg").textContent = res.error ? res.error : `saved to ${res.file}; restart the engine to use it`;
-    loadConfig();
+    loadConfig(); loadAxes();
+  };
+}
+
+// ---- drill-in: a star of one-axis auto-fills centred on a chosen run ----
+function drillNeighbourhood(r) {
+  const f = (CONFIG && CONFIG.facts) || {}, layers = f.expertLayers || f.blockCount || 40, ctxMax = f.contextTrain || 262144;
+  const p = r.params, cpus = (CONFIG && CONFIG.cpuThreads) || 24;
+  const near = (v, steps) => steps.map(d => v + d);
+  const clamp = (vals, lo, hi) => uniq(vals.filter(v => v >= lo && v <= hi));
+  return {
+    nCpuMoe: { values: clamp(near(p.nCpuMoe, [-2, -1, 0, 1, 2]), 0, layers), why: "fewer CPU layers: faster decode, less VRAM headroom" },
+    ctx: { values: clamp(near(p.ctx, [-16384, -8192, 0, 8192, 16384, 32768]), 8192, ctxMax), why: "context budget around this point" },
+    ubatch: { values: clamp([256, 512, 768, 1024, 1280, 1536, 2048].filter(v => Math.abs(Math.log2(v / p.ubatch)) <= 1.01), 64, 4096), why: "prefill speed against compute-buffer VRAM (batch raised to match)" },
+    threads: { values: clamp([8, 12, 16, 20, 24, p.threads], 1, cpus), why: "CPU threads for the CPU-side experts" },
+    B: { values: clamp([1, 2, 3, 4, 5, 6, 8, 10, 12, 16, r.B], 1, 64), why: "concurrency: total throughput against per-sequence speed" },
+    depth: { values: clamp([r.depth / 4, r.depth / 2, r.depth, r.depth * 2, r.depth * 4].map(Math.round), 128, ctxMax), why: "how speed holds up as prompts get deeper" },
+  };
+}
+function renderDrill(getPick) {
+  const r = getPick && getPick();
+  $("drill").style.display = r ? "block" : "none";
+  if (!r) return;
+  const nb = drillNeighbourhood(r);
+  $("drillBase").innerHTML = `Centre: ncmoe <b>${r.params.nCpuMoe}</b>, ctx <b>${axisFmt("ctx", r.params.ctx)}</b>, ub <b>${r.params.ubatch}</b>, ` +
+    `t <b>${axisFmt("threads", r.params.threads)}</b>, B <b>${r.B}</b>, depth <b>${r.depth}</b> · decode ${fmtNum(r.tgTps)}, prefill ${fmtNum(r.ppTps)} tok/s`;
+  const def = new Set(["nCpuMoe", "ctx", "ubatch", "B"]);
+  $("drillAxes").innerHTML = Object.entries(nb).map(([a, n]) =>
+    `<label style="display:flex;gap:6px;align-items:center;margin:2px 0"><input type="checkbox" data-a="${a}" ${def.has(a) ? "checked" : ""}>` +
+    `<span style="min-width:120px">${AXES[a].label}</span><input data-v="${a}" value="${n.values.join(",")}" style="flex:1" title="${esc(n.why)}"></label>`).join("");
+  $("drillBtn").onclick = async () => {
+    const jobs = [];
+    for (const cb of $("drillAxes").querySelectorAll("input[type=checkbox]:checked")) {
+      const a = cb.dataset.a, vals = $("drillAxes").querySelector(`input[data-v="${a}"]`).value.split(",").map(Number).filter(v => v > 0 || (a === "nCpuMoe" && v === 0));
+      if (!vals.length) continue;
+      const fixed = {};
+      for (const k of ["nCpuMoe", "ctx", "ubatch", "batch", "threads"]) if (k !== a && r.params[k] != null) fixed[k] = r.params[k];
+      if (r.params.cacheTypeK) { fixed.cacheTypeK = r.params.cacheTypeK; fixed.cacheTypeV = r.params.cacheTypeV; }
+      if (a === "ubatch") fixed.batch = Math.max(r.params.batch || 2048, ...vals);
+      jobs.push({ axes: { [a]: vals }, fixed, B: a === "B" ? [1] : [r.B], depth: a === "depth" ? [r.depth] : [r.depth], ntg: r.ntg || 128,
+                  note: `drill around ncmoe ${r.params.nCpuMoe} ctx ${r.params.ctx} ub ${r.params.ubatch} B ${r.B}: ${AXES[a].label}` });
+    }
+    if (!jobs.length) { $("drillMsg").textContent = "Tick at least one axis."; return; }
+    let runs = 0;
+    for (const j of jobs) {
+      try { const p = await (await fetch("/api/plan", { method: "POST", body: JSON.stringify(j) })).json(); runs += (p.todo || []).length + (p.probe || []).length + (p.retry || []).length; } catch (e) {}
+    }
+    if (!confirm(`Queue ${jobs.length} auto-fill job(s) around this point (about ${runs} benchmark runs; each takes the GPU for a minute or more)?`)) return;
+    for (const j of jobs) await fetch("/api/auto", { method: "POST", body: JSON.stringify(j) });
+    $("drillMsg").textContent = `queued ${jobs.length} job(s), about ${runs} runs`;
   };
 }
 
@@ -325,7 +863,7 @@ function scatter(svg, pts, opts) {
 
 function renderTri() {
   const yk = $("triY").value, xk = $("triX").value;
-  const recs = filtered(["B", "depth", "ctx"]).filter(r => r.outcome === "ok" && r[yk] != null);
+  const recs = filtered([]).filter(r => r.outcome === "ok" && r[yk] != null);
   const Bs = uniq(recs.map(r => r.B));
   const color = b => viridis(Bs.length > 1 ? Bs.indexOf(b) / (Bs.length - 1) : .5);
   const xOf = r => xk === "depth" ? r.depth : xk === "ctx" ? r.params.ctx : Math.floor(r.params.ctx / r.B);
@@ -343,33 +881,687 @@ function renderHist() {
   scatter($("hist"), pts, { log: false, xticks: [], xlabel: "time (hours since the first run) · " + L.label });
 }
 
-function renderAll() { renderFilters(); renderHeat(); renderTri(); renderHist(); if (selected) renderSelection(); }
+// ---- axis guidance: values worth measuring next on each axis, with the reason (the ✦ suggest buttons) ----
+const GUIDE_MAX = 6;
+function fillGaps(have, step, lo, hi) {
+  // the midpoint of each wide gap between measured values (snapped to step), widest first, plus one step beyond each end
+  const v = [...new Set(have)].filter(n => n >= lo && n <= hi).sort((a, b) => a - b), out = [];
+  for (let i = 1; i < v.length; i++) {
+    const gap = v[i] - v[i - 1];
+    if (gap > step) out.push([gap, Math.round((v[i - 1] + v[i]) / 2 / step) * step]);
+  }
+  out.sort((a, b) => b[0] - a[0]);
+  const res = out.map(o => o[1]);
+  if (v.length && v[0] - step >= lo) res.push(v[0] - step);
+  if (v.length && v[v.length - 1] + step <= hi) res.push(v[v.length - 1] + step);
+  return res;
+}
+function axisGuide(a, have) {
+  const f = (CONFIG && CONFIG.facts) || {}, cf = (CONFIG && CONFIG.config) || {};
+  const layers = f.expertLayers || f.blockCount || Math.max(0, ...have), ctxMax = f.contextTrain || 262144, cpus = (CONFIG && CONFIG.cpuThreads) || navigator.hardwareConcurrency || 16;
+  const pick = (cands, why) => ({ values: [...new Set(cands)].filter(v => !have.includes(v)).slice(0, GUIDE_MAX).sort((p, q) => p - q), why });
+  switch (a) {
+    case "ubatch": {
+      const top = Math.min(cf.batch || 2048, 4096);
+      return pick([768, 1536, 1280, 256, 1024, 2048, 512].filter(v => v <= Math.max(top, 2048)),
+        `Any integer up to batch (${cf.batch || "?"}) works; multiples of 128 or 256 fill the GPU's tiles. Bigger ubatch: faster prefill, a bigger compute buffer (VRAM). The in-between sizes show where the prefill gain stops paying for its memory. ubatch above batch is clamped, so raise batch with it.`);
+    }
+    case "batch":
+      return pick([2048, 4096, 1024, 8192], "The logical batch caps ubatch; beyond that it barely changes speed or memory. Keep it at least ubatch.");
+    case "nCpuMoe":
+      return pick([...fillGaps(have, 1, 0, layers), 0, layers],
+        `0..${layers} (layers in this model; above ${layers} every expert is on the CPU already, so it repeats ${layers}). Each layer moved to the CPU frees about ${f.expertBytesPerLayerMean ? Math.round(f.expertBytesPerLayerMean / 2 ** 20) + " MiB" : "one layer's experts"} of VRAM for context or batch, and costs decode speed. Fill the gaps near the out-of-memory edge first.`);
+    case "ctx":
+      return pick(fillGaps(have, 8192, 8192, ctxMax).concat([ctxMax]),
+        `Total context shared by all slots, up to ${ctxMax} (the model's training context). KV costs about ${f.kvBytesPerTokenQ8 ? (f.kvBytesPerTokenQ8 / 1024).toFixed(1) + " KiB" : "?"} per token at q8_0. Multiples of 8192; midpoints of the widest gaps first.`);
+    case "B":
+      return pick([...Array(16).keys()].map(i => i + 1).filter(b => !have.includes(b)).concat([12, 24, 32]),
+        "Concurrent sequences (slots). Every integer is valid; total decode usually saturates somewhere in 4..12, so fill those first, then probe beyond.");
+    case "depth":
+      return pick(fillGaps(have, 1024, 512, ctxMax).concat([512, 4096, 16384, 65536]),
+        "Prompt tokens already in each sequence's KV when decoding starts. Decode slows as depth grows; memory grows with B x depth. Spread across the range you expect real requests to use.");
+    case "threads":
+      return pick([16, 8, 12, 20, 24, cpus].filter(t => t <= cpus),
+        `CPU threads for the expert layers on the CPU (this machine: ${cpus} logical). Decode usually peaks near the performance-core count; past it, threads contend.`);
+    default:
+      return { values: [], why: "No guidance for this axis." };
+  }
+}
+function guideButton(btn, axisSel, inputId, axisKey) {
+  const update = () => {
+    const a = $(axisSel).value, have = DATA ? uniq([...filtered([$("xAxis").value, $("yAxis").value]).map(r => AXES[a] && AXES[a].get(r)), ...extraValues(inputId)]) : [];
+    const g = axisGuide(a, have);
+    btn.title = (g.values.length ? `Adds ${g.values.join(", ")}.\n\n` : "Nothing new to suggest.\n\n") + g.why;
+    btn.disabled = !g.values.length;
+    return g;
+  };
+  btn.onmouseenter = update;
+  btn.onclick = () => {
+    const g = update();
+    if (!g.values.length) return;
+    $(inputId).value = uniq([...extraValues(inputId), ...g.values]).join(",");
+    $(inputId).dispatchEvent(new Event("change"));
+  };
+}
+guideButton($("guideX"), "xAxis", "extraX");
+guideButton($("guideY"), "yAxis", "extraY");
+
+// ---- auto-fill: the view's gaps, planned by the server (POST /api/plan) and filled by its job runner (POST /api/auto) ----
+const AUTO_AXES = ["nCpuMoe", "ctx", "B", "depth", "ubatch", "batch", "threads"];
+let PLAN = { cells: new Map(), flags: new Map(), probes: new Map(), todo: 0, inferred: 0, sig: "" };
+function extraValues(id) { return $(id).value.split(",").map(s => s.trim()).filter(Boolean).map(Number).filter(n => !isNaN(n)); }
+function formList(id) { return $(id).value.split(",").map(s => s.trim()).filter(Boolean).map(Number); }
+function autoSpec() {
+  const x = $("xAxis").value, y = $("yAxis").value;
+  if (!AUTO_AXES.includes(x) || !AUTO_AXES.includes(y) || x === y) return null;
+  const recs = filtered([x, y]);
+  const axes = {
+    [x]: uniq([...recs.map(r => AXES[x].get(r)), ...extraValues("extraX")]),
+    [y]: uniq([...recs.map(r => AXES[y].get(r)), ...extraValues("extraY")]),
+  };
+  const fixed = {};
+  let B = formList("swB"), depth = formList("swDepth"), ntg = Number($("swNtg").value) || 128;
+  for (const [a, v] of Object.entries(filters)) {
+    if (v === "*") continue;
+    if (a === "B") B = [Number(v)];
+    else if (a === "depth") depth = [Number(v)];
+    else if (a === "ntg") ntg = Number(v);
+    else if (a === "kv") { const [k, vv] = v.split("/"); fixed.cacheTypeK = k; fixed.cacheTypeV = vv; }
+    else if (AUTO_AXES.includes(a)) fixed[a] = Number(v);
+  }
+  return { axes, fixed, B, depth, ntg, note: "auto-fill " + AXES[x].label + " x " + AXES[y].label };
+}
+let planTimer = null;
+function refreshPlan() {
+  clearTimeout(planTimer);
+  planTimer = setTimeout(async () => {
+    const spec = autoSpec();
+    if (!spec) { PLAN = { cells: new Map(), flags: new Map(), probes: new Map(), todo: 0, inferred: 0, sig: "" }; $("planInfo").textContent = "Auto-fill needs config or bench axes (not KV type, model, build or tokens generated)."; $("autoBtn").disabled = true; return; }
+    $("autoBtn").disabled = false;
+    const sig = JSON.stringify(spec) + DATA.records.length;
+    if (sig === PLAN.sig) return;
+    try {
+      const p = await (await fetch("/api/plan", { method: "POST", body: JSON.stringify(spec) })).json();
+      if (p.error) { $("planInfo").textContent = p.error; return; }
+      const x = $("xAxis").value, y = $("yAxis").value, cells = new Map();
+      const valOf = (g, a) => a === "depth" ? [g.depth] : a === "B" ? g.B : [g.params[a]];
+      const mark = (g, state) => valOf(g, x).forEach(xv => valOf(g, y).forEach(yv => { const k = xv + "|" + yv; if (!cells.has(k) || state === "oom") cells.set(k, state); }));
+      p.todo.forEach(g => mark(g, g.predicted || "unknown"));
+      p.inferred.forEach(g => mark(g, "oom"));
+      const flags = new Map();
+      const flag = (g, retry) => valOf(g, x).forEach(xv => valOf(g, y).forEach(yv => {
+        const k = xv + "|" + yv, prev = flags.get(k);
+        flags.set(k, { retry: retry || (prev && prev.retry), reasons: [...(prev ? prev.reasons : []), `${g.kind}: ${g.reason} (depth ${g.depth}, B ${g.B.join(",")})${retry ? "" : " - already retried"}`] });
+      }));
+      p.retry.forEach(g => flag(g, true));
+      p.flagged.forEach(g => flag(g, false));
+      const probes = new Map();
+      (p.probe || []).forEach(g => valOf(g, x).forEach(xv => valOf(g, y).forEach(yv => {
+        const k = xv + "|" + yv; probes.set(k, [...(probes.get(k) || []), `depth ${g.depth}, B ${g.B.join(",")}`]);
+      })));
+      PLAN = { cells, flags, probes, todo: p.todo.length, inferred: p.inferred.length, sig };
+      const unknown = p.todo.filter(g => !g.predicted).length;
+      const parts = [];
+      if (p.todo.length) parts.push(`${p.todo.length} gap run(s) (${unknown} still unknown to fit)`);
+      if (p.retry.length) parts.push(`${p.retry.length} outlier(s) to retry`);
+      if (p.probe && p.probe.length) parts.push(`${p.probe.length} edge probe(s)`);
+      if (p.flagged.length) parts.push(`${p.flagged.length} outlier(s) already retried`);
+      if (p.inferred.length) parts.push(`${p.inferred.length} inferred out of memory`);
+      $("planInfo").textContent = (p.todo.length || p.retry.length || (p.probe && p.probe.length) ? "" : "Nothing to fill in this view. ") + parts.join(", ");
+      renderHeat();
+    } catch (e) { $("planInfo").textContent = "plan failed: " + e; }
+  }, 250);
+}
+$("autoBtn").onclick = async () => {
+  const spec = autoSpec();
+  if (!spec) return;
+  await fetch("/api/auto", { method: "POST", body: JSON.stringify(spec) });
+  $("planInfo").textContent = "Auto-fill queued: " + PLAN.todo + " run(s) planned; it re-plans after each run.";
+  pollJobs();
+};
+$("stopBtn").onclick = async () => { await fetch("/api/stop", { method: "POST", body: "{}" }); pollJobs(); };
+for (const id of ["extraX", "extraY", "swB", "swDepth", "swNtg"]) $(id).addEventListener("change", () => { PLAN.sig = ""; renderAll(); });
+
+function runtimeScopes() {
+  const eligible = DATA.records.filter(r => !r.excluded && TuningEvidence.complete(r));
+  const cohorts = [...new Map([...eligible].reverse().map(r => [TuningEvidence.cohortKey(r), r])).entries()];
+  const old = $("cohort").value;
+  $("cohort").replaceChildren(...cohorts.map(([key,r]) => new Option(`${r.backend} · ${r.model.split('#').pop()} · ${r.build}`, key)));
+  if (cohorts.some(([k])=>k===old)) $("cohort").value = old;
+  const durations = uniq(eligible.filter(r=>TuningEvidence.cohortKey(r)===$("cohort").value).map(r=>r.ntg));
+  const prev = +$("evidenceNtg").value;
+  $("evidenceNtg").replaceChildren(...durations.map(n=>new Option(n + ' tokens', n)));
+  $("evidenceNtg").value = durations.includes(prev) ? prev : durations.includes(128) ? 128 : durations.at(-1);
+}
+
+// Concurrency colours shared by the triangle and the frontier plot: a sequential scale over log2(B).
+function concurrencyColor(b, bs) {
+  const lo = Math.log2(Math.min(...bs)), hi = Math.log2(Math.max(...bs));
+  return viridis(hi > lo ? .1 + .8 * (Math.log2(b) - lo) / (hi - lo) : .5);
+}
+// ---- The priority pyramid in 3D ----
+// Four priorities are the corners of a tetrahedron; every weighting is a point inside it. The triangle is the slice where
+// the held priority keeps its share, drawn inside the tetrahedron through an orthographic camera. Orthographic projection
+// keeps the slice affine on screen, so the flat barycentric maths (triPos, triWeights) works on its projected corners.
+const TRI = { V: [[300,58],[62,470],[538,470]], N: 30 };  // the slice's corners on screen, updated every render
+const WEIGHT_NAMES = ['Speed','Context','Concurrency','Prefill'];
+const TET = (() => { const r = Math.sqrt(8) / 3, c = r * Math.cos(Math.PI / 6), z = r * Math.sin(Math.PI / 6);
+  return [[0,1,0], [-c,-1/3,z], [c,-1/3,z], [0,-1/3,-r]]; })();  // speed top, context front left, concurrency front right, prefill behind
+const v3 = {sub:(a,b)=>a.map((x,i)=>x-b[i]), add:(a,b)=>a.map((x,i)=>x+b[i]), mul:(a,k)=>a.map(x=>x*k), dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]], norm:a=>{const l=Math.hypot(...a)||1; return a.map(x=>x/l);},
+  lerp:(a,b,t)=>a.map((x,i)=>x+(b[i]-x)*t)};
+const m3 = {mul:(A,B)=>A.map(r=>[0,1,2].map(j=>r[0]*B[0][j]+r[1]*B[1][j]+r[2]*B[2][j])), T:A=>[0,1,2].map(i=>A.map(r=>r[i])),
+  apply:(M,p)=>M.map(r=>v3.dot(r,p)),
+  rot:([x,y,z],a)=>{const c=Math.cos(a),s=Math.sin(a),t=1-c; return [[t*x*x+c,t*x*y-s*z,t*x*z+s*y],[t*x*y+s*z,t*y*y+c,t*y*z-s*x],[t*x*z-s*y,t*y*z+s*x,t*z*z+c]];}};
+// The camera looking straight at the slice of a view: the held corner straight behind it, the first shown axis at the top.
+// Rows are the screen's right, up and into-the-screen directions.
+function faceBasis(held) {
+  const shown = [0,1,2,3].filter(i => i !== held), c = v3.mul(shown.reduce((t,i)=>v3.add(t,TET[i]),[0,0,0]), 1/3);
+  const f = v3.norm(v3.sub(TET[held], c)), u0 = v3.sub(TET[shown[0]], c), u = v3.norm(v3.sub(u0, v3.mul(f, v3.dot(u0, f))));
+  return [v3.cross(f, u), u, f];
+}
+const TILT = m3.mul(m3.rot([1,0,0], -0.3), m3.rot([0,1,0], 0.38));  // the default 3D view: a little from above and to the side
+let triCam = null, triCamHeld = null, triAnim = 0, lastPref = null;
+function animateCamera(target) {
+  cancelAnimationFrame(triAnim);
+  const start = triCam, D = m3.mul(target, m3.T(start));
+  const angle = Math.acos(Math.max(-1, Math.min(1, (D[0][0] + D[1][1] + D[2][2] - 1) / 2)));
+  if (angle < 1e-4 || Math.sin(angle) < 1e-3) { triCam = target; redrawTriangle(); return; }
+  const axis = v3.norm([D[2][1]-D[1][2], D[0][2]-D[2][0], D[1][0]-D[0][1]]), t0 = performance.now();
+  const step = now => {
+    const t = Math.min(1, (now - t0) / 380), e = t < .5 ? 2*t*t : 1 - (2 - 2*t) ** 2 / 2;
+    triCam = t < 1 ? m3.mul(m3.rot(axis, angle * e), start) : target; redrawTriangle();
+    if (t < 1) triAnim = requestAnimationFrame(step);
+  };
+  triAnim = requestAnimationFrame(step);
+}
+// Switch the view to another slice, keeping however the user had turned the camera relative to the old slice.
+function setFace(held) {
+  const offset = triCam && triCamHeld !== null ? m3.mul(triCam, m3.T(faceBasis(triCamHeld))) : TILT;
+  $("triView").value = held; triCamHeld = held; runtimePick = null;
+  if (!triCam) triCam = m3.mul(offset, faceBasis(held));
+  renderRuntime(); animateCamera(m3.mul(offset, faceBasis(held)));
+}
+function orbit(dx, dy) {
+  cancelAnimationFrame(triAnim);
+  triCam = m3.mul(m3.mul(m3.rot([0,1,0], dx * .006), m3.rot([1,0,0], dy * .006)), triCam); redrawTriangle();
+}
+function redrawTriangle() { if (lastPref) renderPreferences(...lastPref); }
+function triPos(w) { const s = w[0]+w[1]+w[2] || 1; return [0,1].map(k => (w[0]*TRI.V[0][k] + w[1]*TRI.V[1][k] + w[2]*TRI.V[2][k]) / s); }
+// The view: which axis is held (the triangle shows the other three). Weights for a point of the slice: the shown axes
+// share (1 - held) by the triangle's barycentric coordinates; the held axis keeps its share.
+function triView() { const held = +$("triView").value; return {held, shown: [0,1,2,3].filter(i => i !== held)}; }
+function sliceWeights(bary, view, h) { const full = [0,0,0,0]; view.shown.forEach((ax, k) => full[ax] = bary[k] * (1 - h)); full[view.held] = h; return full; }
+// The corner widget: the same tetrahedron turned by the same camera. Faces are clickable (look at that slice), the
+// current face is highlighted, and the slice and the priority dot sit inside it, as on the large plot.
+function renderPyramid(w, view) {
+  const svg = $("pyramid"), S = 46; svg.innerHTML = '';
+  const P = TET.map(t => m3.apply(triCam, t)), xy = q => [S*q[0], -S*q[1]];
+  const faces = [0,1,2,3].map(k => ({k, pts:[0,1,2,3].filter(i => i !== k), depth: -m3.apply(triCam, TET[k])[2] / 3}))  // the face's centre is opposite its corner
+    .sort((a, b) => b.depth - a.depth);  // far faces first
+  const muted = css('--muted'), accent = css('--accent');
+  for (const f of faces) {
+    const current = f.k === view.held, poly = el('polygon',{points:f.pts.map(i => xy(P[i]).join(',')).join(' '), class:'face',
+      fill: current ? accent : muted, 'fill-opacity': current ? .28 : .08, stroke: current ? accent : muted, 'stroke-width': current ? 1.6 : .8}, svg);
+    const t = el('title', {}, poly); t.textContent = `Look at ${f.pts.map(i => WEIGHT_NAMES[i]).join(' · ')} (${WEIGHT_NAMES[f.k].toLowerCase()} held)`;
+    poly.dataset.face = f.k;
+  }
+  const h = w[view.held], slice = view.shown.map(i => xy(m3.apply(triCam, v3.lerp(TET[i], TET[view.held], h))));
+  el('polygon',{points:slice.map(q=>q.join(',')).join(' '),fill:'none',stroke:accent,'stroke-width':1.2,'stroke-dasharray':'2 1.5','pointer-events':'none'},svg);
+  const dot = xy(m3.apply(triCam, TET.reduce((t, c, i) => v3.add(t, v3.mul(c, w[i])), [0,0,0])));
+  el('circle',{cx:dot[0],cy:dot[1],r:3.5,fill:accent,stroke:css('--panel'),'stroke-width':1.2,'pointer-events':'none'},svg);
+  ['S','Ctx','B','Pf'].forEach((t, i) => {
+    const [x, y] = xy(P[i]), l = Math.hypot(x, y) || 1;
+    const q = el('text',{x:x + 9*x/l, y:y + 9*y/l + 3, 'text-anchor':'middle', 'pointer-events':'none',
+      style:`font-size:9px;font-weight:${i===view.held?700:500};fill:${i===view.held?accent:muted}`}, svg);
+    q.textContent = t;
+  });
+}
+function renderPreferences(points, constraints) {
+  const svg = $("preferenceTriangle"), sum = runtimeWeights.reduce((a,b)=>a+b,0);
+  const w = [0,1,2,3].map(i => sum ? (runtimeWeights[i]||0)/sum : (i < 3 ? 1/3 : 0)), N = TRI.N;
+  const view = triView(), h = Math.min(w[view.held], .999);
+  lastPref = [points, constraints];
+  if (!triCam || triCamHeld === null) { triCamHeld = view.held; triCam = m3.mul(TILT, faceBasis(view.held)); }
+  // Project: a fixed scale (turning does not zoom), centred on the tetrahedron's on-screen extent.
+  const S = 225, cam = TET.map(t => m3.apply(triCam, t));
+  const xs = cam.map(q => q[0]), ys = cam.map(q => q[1]);
+  const cx = 325 - S * (Math.min(...xs) + Math.max(...xs)) / 2, cy = 262 + S * (Math.min(...ys) + Math.max(...ys)) / 2;
+  const scr = q => [cx + S * q[0], cy - S * q[1]], P = cam.map(scr);
+  const corners3 = view.shown.map(i => v3.lerp(TET[i], TET[view.held], h));
+  TRI.V = corners3.map(c => scr(m3.apply(triCam, c)));
+  const V = TRI.V, [[x1,y1],[x2,y2],[x3,y3]] = V;
+  TRI.flat = Math.abs((y2-y3)*(x1-x3) + (x3-x2)*(y1-y3)) < 400;  // seen edge-on: too thin to read or drag
+  svg.innerHTML = '';
+  // Faces turned away from the viewer are seen through the slice: shade them faintly, dash their edges.
+  const facing = k => m3.apply(triCam, v3.mul(TET[k], -1))[2] < 0;  // outward normal of the face opposite corner k
+  const facePts = k => [0,1,2,3].filter(i => i !== k).map(i => P[i].join(',')).join(' ');
+  for (let k = 0; k < 4; k++) if (!facing(k)) el('polygon',{points:facePts(k),fill:css('--muted'),'fill-opacity':.07,stroke:'none'},svg);
+  const EDGES = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]];
+  const edgeFront = ([a, b]) => [0,1,2,3].some(k => k !== a && k !== b && facing(k));  // on a face towards the viewer
+  for (const e of EDGES) if (!edgeFront(e)) el('line',{x1:P[e[0]][0],y1:P[e[0]][1],x2:P[e[1]][0],y2:P[e[1]][1],stroke:css('--muted'),'stroke-opacity':.6,'stroke-width':1.2,class:'edge-back'},svg);
+  el('polygon',{points:V.map(v=>v.join(',')).join(' '),fill:css('--bg'),stroke:css('--accent'),'stroke-opacity':.7,'stroke-width':2},svg);
+  const prep = points ? TuningEvidence.prepare(points, constraints) : null;
+  const bs = prep ? uniq(prep.eligible.map(p => p.concurrency)) : [];
+  const regions = new Map();
+  if (prep && prep.eligible.length) {
+    const depths = uniq(prep.eligible.map(p => p.depth)), dlo = Math.log2(depths[0]), dhi = Math.log2(depths.at(-1));
+    const lattice = (i, j) => [(N - i) / N, (i - j) / N, j / N];  // row i from the top, j steps towards concurrency
+    const cacheKey = JSON.stringify([constraints, view.held, h.toFixed(4)]);
+    if (!renderPreferences.cache || renderPreferences.cache.points !== points || renderPreferences.cache.key !== cacheKey)
+      renderPreferences.cache = {points, key: cacheKey, tops: new Map()};
+    const tops = renderPreferences.cache.tops;
+    const cell = pts => {
+      const wc = [0,1,2].map(k => pts.reduce((t, q) => t + q[k], 0) / 3), ck = wc.map(v => v.toFixed(4)).join();
+      if (!tops.has(ck)) tops.set(ck, TuningEvidence.best(prep, sliceWeights(wc, view, h)));
+      const top = tops.get(ck);
+      if (!top) return;
+      const op = .28 + .5 * (dhi > dlo ? (Math.log2(top.depth) - dlo) / (dhi - dlo) : .5);  // deeper prompt: stronger shade
+      el('polygon',{points:pts.map(q => triPos(q).map(v => v.toFixed(1)).join(',')).join(' '),fill:concurrencyColor(top.concurrency, bs),'fill-opacity':op,stroke:concurrencyColor(top.concurrency, bs),'stroke-opacity':op,'stroke-width':.6},svg);
+      const r = regions.get(top.key) || {p: top, x: 0, y: 0, n: 0}, c = triPos(wc);
+      r.x += c[0]; r.y += c[1]; r.n++; regions.set(top.key, r);
+    };
+    for (let i = 0; i < N; i++) for (let j = 0; j <= i; j++) {
+      cell([lattice(i, j), lattice(i + 1, j), lattice(i + 1, j + 1)]);
+      if (j < i) cell([lattice(i, j), lattice(i + 1, j + 1), lattice(i, j + 1)]);
+    }
+    // Label each region by concurrency and depth, adding ubatch where two winners differ only there. Regions still sharing
+    // a label (other settings differ) get it once, on the largest; hovering names each region's exact settings.
+    const area = Math.abs((V[1][1]-V[2][1])*(V[0][0]-V[2][0]) + (V[2][0]-V[1][0])*(V[0][1]-V[2][1])) / 2;
+    const minCells = Math.max(3, 3 * 98000 / Math.max(area, 1));  // a foreshortened slice labels only its larger regions
+    const shownRegions = [...regions.values()].filter(r => r.n >= minCells);  // smaller ones are too small to label legibly
+    const base = r => `B${r.p.concurrency} · ${tokens(r.p.depth)}`, withUb = r => base(r) + ` · ub${r.p.record.params.ubatch}`;
+    const ubs = new Map();
+    shownRegions.forEach(r => ubs.set(base(r), new Set([...(ubs.get(base(r)) || []), r.p.record.params.ubatch])));
+    const text = r => ubs.get(base(r)).size > 1 ? withUb(r) : base(r);
+    const largest = new Map();
+    shownRegions.forEach(r => { const k = text(r); if (!largest.has(k) || largest.get(k).n < r.n) largest.set(k, r); });
+    // Largest regions first; a label that would overlap one already placed is left to the hover tooltip.
+    const placed = [];
+    for (const r of [...largest.values()].sort((a, b) => b.n - a.n)) {
+      const t = el('text',{x:r.x / r.n, y:r.y / r.n + 4, 'text-anchor':'middle', class:'region-label'}, svg);
+      t.textContent = text(r);
+      const b = t.getBBox();
+      if (b.width && placed.some(q => b.x < q.x + q.width + 2 && q.x < b.x + b.width + 2 && b.y < q.y + q.height && q.y < b.y + b.height)) { t.remove(); continue; }
+      placed.push(b);
+    }
+  } else {
+    el('text',{x:300,y:330,'text-anchor':'middle',class:'muted'},svg).textContent = 'No eligible measured points';
+  }
+  for (const e of EDGES) if (edgeFront(e)) el('line',{x1:P[e[0]][0],y1:P[e[0]][1],x2:P[e[1]][0],y2:P[e[1]][1],stroke:css('--muted'),'stroke-opacity':.8,'stroke-width':1.4,'pointer-events':'none'},svg);
+  const metricLabel = {decode:'decode / seq', requestRate:'requests / min'}[constraints?.speedMetric] || 'decode / seq';
+  const names = [`Speed (${metricLabel})`, 'Context (prompt depth)', 'Concurrency', 'Prefill (ubatch)'];
+  P.forEach(([x, y], i) => {
+    // a corner straight behind the slice (face-on) would sit on the regions: the caption below names it instead
+    if (i === view.held && !TRI.flat && triWeights({x, y})) return;
+    const dx = x - 325, dy = y - 262, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
+    el('circle',{cx:x, cy:y, r:4, fill:i===view.held?css('--accent'):css('--muted'), 'pointer-events':'none'}, svg);
+    const t = el('text',{x:Math.max(4, Math.min(596, x + 14*ux)), y:y + 14*uy + (uy > .3 ? 10 : uy < -.3 ? -2 : 4), 'text-anchor': x < 120 ? 'start' : x > 480 ? 'end' : ux > .35 ? 'start' : ux < -.35 ? 'end' : 'middle',
+      class:'vertex-label', style:i===view.held?`fill:${css('--accent')}`:''}, svg);
+    t.textContent = i === view.held ? `${names[i].split(' (')[0]} ${Math.round(h*100)}% (held)` : names[i];
+    // keep the whole label inside the plot
+    const bb = t.getBBox(); if (bb.width) { if (bb.x < 4) t.setAttribute('x', +t.getAttribute('x') + 4 - bb.x); else if (bb.x + bb.width > 596) t.setAttribute('x', +t.getAttribute('x') - (bb.x + bb.width - 596)); }
+  });
+  const [px, py] = triPos(view.shown.map(i => w[i]));
+  el('circle',{cx:px,cy:py,r:13,fill:css('--accent'),stroke:css('--panel'),'stroke-width':4},svg);
+  el('text',{x:300,y:524,'text-anchor':'middle',class:'muted'},svg).textContent = TRI.flat ? 'The slice is edge-on: turn the pyramid to see it'
+    : `slice at ${names[view.held].split(' (')[0].toLowerCase()} ${Math.round(h*100)}% · the slice moves towards that corner as its share grows`;
+  WEIGHT_NAMES.forEach((s,i)=> {$("weight"+s).value=runtimeWeights[i]||0; $("share"+s).textContent=Math.round(w[i]*100)+'%';});
+  document.querySelectorAll('[data-preset]').forEach(b=>{ const t=PRESETS[b.dataset.preset], tt=t.reduce((x,y)=>x+y,0);
+    b.setAttribute('aria-pressed', String(t.every((v,i)=>Math.abs(v/tt-w[i])<0.005))); });
+  renderPyramid(w, view);
+  svg.onmousemove = ev => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const at = pt.matrixTransform(svg.getScreenCTM().inverse()), b3 = TRI.flat ? null : triWeights(at);
+    if (!prep || !b3 || triDrag) { tip(null); return; }
+    const wt = sliceWeights(b3, view, h), top = TuningEvidence.best(prep, wt);
+    if (!top) { tip(null); return; }
+    tip(`<b>B${top.concurrency} · ${tokens(top.depth)} prompt</b><br>decode ${fmtNum(top.decode)}/seq (${fmtNum(top.total)} total) · prefill ${fmtNum(top.prefill)}` +
+      `${top.requestSeconds ? ' · ' + top.requestSeconds.toFixed(1) + ' s per request' : ''}<br>ncmoe ${top.record.params.nCpuMoe} · ctx ${tokens(top.record.params.ctx)} · ub ${top.record.params.ubatch}` +
+      `<br><span class="muted">wins at speed ${Math.round(wt[0]*100)}% · context ${Math.round(wt[1]*100)}% · concurrency ${Math.round(wt[2]*100)}% · prefill ${Math.round(wt[3]*100)}%; click to choose</span>`, ev);
+  };
+  svg.onmouseleave = () => tip(null);
+  $("triangleLegend").innerHTML = bs.length ? bs.map(b => `<span><span class="sw" style="background:${concurrencyColor(b, bs)}"></span>B=${b}</span>`).join('') +
+    '<span class="note">· stronger shade = deeper tested prompt</span>' : '';
+}
+// Weights at an SVG point inside the triangle (barycentric coordinates), or null outside it.
+function triWeights(at) {
+  const [[x1,y1],[x2,y2],[x3,y3]] = TRI.V, d = (y2-y3)*(x1-x3) + (x3-x2)*(y1-y3);
+  const a = ((y2-y3)*(at.x-x3) + (x3-x2)*(at.y-y3)) / d, b = ((y3-y1)*(at.x-x3) + (x1-x3)*(at.y-y3)) / d, c = 1 - a - b;
+  return a < -.02 || b < -.02 || c < -.02 ? null : [a, b, c].map(v => Math.max(0, v));
+}
+function preferenceAt(event) {
+  if (TRI.flat) return;
+  const svg=$("preferenceTriangle"), p=svg.createSVGPoint(); p.x=event.clientX; p.y=event.clientY;
+  const at=p.matrixTransform(svg.getScreenCTM().inverse()), [x1,y1]=TRI.V[0], [x2,y2]=TRI.V[1], [x3,y3]=TRI.V[2];
+  const d=(y2-y3)*(x1-x3)+(x3-x2)*(y1-y3);
+  const w=[((y2-y3)*(at.x-x3)+(x3-x2)*(at.y-y3))/d, ((y3-y1)*(at.x-x3)+(x1-x3)*(at.y-y3))/d].map(v=>Math.max(0,v));
+  w.push(Math.max(0,1-w[0]-w[1]));
+  const sum=w.reduce((a,b)=>a+b,0), view=triView(), total=runtimeWeights.reduce((a,b)=>a+(b||0),0);
+  const h=total ? (runtimeWeights[view.held]||0)/total : 0;
+  runtimeWeights=sliceWeights(w.map(x=>x/sum), view, h).map(x=>Math.round(100*x)); runtimePick=null; renderRuntime();
+}
+let triDrag = null;  // 'dot' (setting priorities) or {x, y} (turning the pyramid)
+function svgPoint(svg, event) { const p = svg.createSVGPoint(); p.x = event.clientX; p.y = event.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+$("preferenceTriangle").onpointerdown = event => {
+  event.preventDefault(); $("preferenceTriangle").setPointerCapture(event.pointerId);
+  const onSlice = !TRI.flat && triWeights(svgPoint($("preferenceTriangle"), event));
+  triDrag = onSlice ? 'dot' : {x: event.clientX, y: event.clientY};
+  if (onSlice) preferenceAt(event);
+};
+$("preferenceTriangle").onpointermove = event => {
+  if (!$("preferenceTriangle").hasPointerCapture(event.pointerId) || !triDrag) return;
+  if (triDrag === 'dot') { preferenceAt(event); return; }
+  orbit(event.clientX - triDrag.x, event.clientY - triDrag.y); triDrag = {x: event.clientX, y: event.clientY};
+};
+$("preferenceTriangle").onpointerup = $("preferenceTriangle").onpointercancel = () => { triDrag = null; };
+// The corner widget: drag to turn, click a face to look at that slice.
+{
+  const g = $("pyramid"); let start = null, last = null;
+  g.onpointerdown = event => { event.preventDefault(); g.setPointerCapture(event.pointerId); start = last = {x: event.clientX, y: event.clientY}; };
+  g.onpointermove = event => {
+    if (!last || !g.hasPointerCapture(event.pointerId)) return;
+    orbit((event.clientX - last.x) * 2.5, (event.clientY - last.y) * 2.5); last = {x: event.clientX, y: event.clientY};
+  };
+  g.onpointerup = event => {
+    const moved = start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4; start = last = null;
+    if (moved) return;
+    const face = document.elementsFromPoint(event.clientX, event.clientY).find(n => n.dataset && n.dataset.face !== undefined);
+    if (face) setFace(+face.dataset.face);
+  };
+  document.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => {
+    const held = triView().held; triCamHeld = held;
+    animateCamera(b.dataset.cam === 'flat' ? faceBasis(held) : m3.mul(TILT, faceBasis(held)));
+  });
+}
+WEIGHT_NAMES.forEach((s,i)=>$("weight"+s).oninput=()=>{runtimeWeights[i]=+$("weight"+s).value; runtimePick=null; renderRuntime();});
+$("triView").onchange=()=>{ const held=+$("triView").value; $("triView").value=triCamHeld??held; setFace(held); };
+const PRESETS = {balanced:[25,25,25,25],speed:[100,0,0,0],context:[0,100,0,0],concurrency:[0,0,100,0],prefill:[0,0,0,100]};
+document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{
+  runtimeWeights = [...PRESETS[b.dataset.preset]];
+  runtimePick=null; renderRuntime();
+});
+for(const id of ['cohort','evidenceNtg','repeatPolicy','minDepth','minConcurrency','minSpeed','minPrefill','speedMetric','frontierMode','concurrencyMatch','projection','rankGroup','slotMode']) $(id).onchange=()=>{
+  runtimePick=null; if(id==='cohort') runtimeScopes(); renderRuntime();
+};
+$("plotRotation").oninput=()=>renderFrontier(runtimeRows.find(p=>p.key===runtimePick)||runtimeRows[0]);
+for(const id of ['minDepth','minConcurrency','minSpeed','minPrefill','slotContextMin']) $(id).oninput=()=>{runtimePick=null;renderRuntime();};
+function exportProfile(point) {
+  const profile=TuningEvidence.profile(point, runtimeWeights,{minSlotContext:slotEffective});
+  const blob=new Blob([JSON.stringify(profile,null,2)+'\n'],{type:'application/json'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='engine-selection.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+let slotEffective=0;  // the slot minimum in force (auto, off or custom), shared with export and exploration
+function renderRuntime() {
+  const pool=TuningEvidence.points(DATA.records,$("cohort").value,+$("evidenceNtg").value,+$("repeatPolicy").value);
+  const constraints={depth:+$("minDepth").value,concurrency:+$("minConcurrency").value,speed:+$("minSpeed").value,prefill:+$("minPrefill").value,speedMetric:$("speedMetric").value,exactConcurrency:$("concurrencyMatch").value==='exact',minSlotContext:0};
+  const mode=$("slotMode").value;
+  $("slotContextMin").disabled = mode!=='custom';
+  slotEffective = mode==='off' ? 0 : mode==='custom' ? +$("slotContextMin").value : TuningEvidence.autoSlot(pool.accepted,constraints);
+  if (mode!=='custom') $("slotContextMin").value = slotEffective || '';
+  constraints.minSlotContext=slotEffective;
+  $("slotNote").textContent = mode==='auto' ? (slotEffective ? `${tokens(slotEffective)}: the largest window every measured concurrency still meets` : 'off: no window keeps every measured concurrency') : mode==='off' ? 'not applied' : '';
+  const valid = ['minDepth','minConcurrency','minSpeed','minPrefill'].every(id=>$(id).value!=='' && $(id).checkValidity()) && (mode!=='custom' || ($("slotContextMin").value!=='' && $("slotContextMin").checkValidity()));
+  runtimeRows=valid ? TuningEvidence.rank(pool.accepted,runtimeWeights,constraints) : [];
+  renderPreferences(valid ? pool.accepted : null, constraints);
+  const reqParts=[`slot ${mode==='off'?'off':tokens(slotEffective)+(mode==='auto'?' (auto)':'')}`];
+  if (constraints.depth) reqParts.push(`prompt ≥ ${tokens(constraints.depth)}`);
+  if (constraints.concurrency>1 || constraints.exactConcurrency) reqParts.push(`B ${constraints.exactConcurrency?'=':'≥'} ${constraints.concurrency}`);
+  if (constraints.speed) reqParts.push(`decode ≥ ${constraints.speed}/seq`);
+  if (constraints.prefill) reqParts.push(`prefill ≥ ${constraints.prefill}`);
+  $("reqSummary").textContent=`${reqParts.join(' · ')} · ${runtimeRows.length} of ${pool.accepted.length} measured points eligible`;
+  const pick=runtimeRows.find(p=>p.key===runtimePick) || runtimeRows[0];
+  const cov=TuningEvidence.coverage(pool.accepted);
+  const summary=`${runtimeRows.length} eligible points · ${runtimeRows.filter(p=>p.frontier).length} on the frontier · ${pool.failed} failed at every run (out of memory or error) · ` +
+    `${pool.mixed} with mixed results, withheld until re-measured · ${pool.healed} healed by later passes · ${pool.insufficient} without enough passes`;
+  const gaps=cov.thin.length ? `<br><b>Limits the ranking:</b> concurrency ${cov.thin.map(t=>t.concurrency).join(", ")} measured at one prompt depth only (${uniq(cov.thin.map(t=>t.depth)).map(tokens).join(", ")}), ` +
+    `so a context-weighted preference can never pick ${cov.thin.length===1?"it":"them"}. Measure deeper (Benchmark map: depth x concurrency, or "Explore around this point").` : "";
+  const missCount=new Map(), qualifiedB=new Set(runtimeRows.map(p=>p.concurrency)), blockedB=new Set();
+  for (const p of pool.accepted) { const m=TuningEvidence.misses(p,constraints); m.forEach(k=>missCount.set(k,(missCount.get(k)||0)+1)); if(m.length && !qualifiedB.has(p.concurrency)) blockedB.add(p.concurrency); }
+  const slot=constraints.minSlotContext||0;
+  const limits=missCount.size ? `<br><b>Requirements leave out ${pool.accepted.length-runtimeRows.length} of ${pool.accepted.length} accepted points:</b> ` +
+    [...missCount].sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${n} ${esc(k)}`).join(" · ") +
+    (blockedB.size ? `. Concurrency ${[...blockedB].sort((a,b)=>a-b).join(", ")} ha${blockedB.size===1?"s":"ve"} no qualifying point.` : "") +
+    (missCount.get('measured at a shallower prompt than the slot minimum') ? (blockedB.size ? ' ' : '. ') + `A speed measured at a shallow prompt says nothing at ${tokens(slot)}: measure at prompt depth ≥ ${tokens(Math.max(0,slot-(+$("evidenceNtg").value||128)))} ` +
+      `with total context ≥ B × ${tokens(slot)} ("Explore beyond the measured region" below sizes the context per B: Add requirements + slot boundary, then Queue gap filling), or lower the slot minimum if your requests are shorter.` : "") : "";
+  $("frontierSummary").innerHTML=esc(summary)+limits+gaps;
+  const box=$("recommendation");
+  if(!pick) {
+    const bounds=pool.accepted.length ? `Measured maxima (separate points): ${tokens(Math.max(...pool.accepted.map(p=>p.depth)))} prompt tokens, ${Math.max(...pool.accepted.map(p=>p.concurrency))} sequences, ${fmtNum(Math.max(...pool.accepted.map(p=>p.speed)))} tok/s per sequence.` : 'No qualifying evidence in this cohort. Try a different output length or evidence requirement.';
+    box.innerHTML=`<h3>${valid ? 'No measured point meets these requirements' : 'Enter valid, non-negative requirements'}</h3><p class="note">${bounds}</p><p class="note">Use the Benchmark map to measure the missing workload. No extrapolated configuration is selected.</p>`;
+  } else {
+    const r=pick.record, p=r.params, isTop=pick.key===runtimeRows[0].key;
+    box.innerHTML=`<div class="recommend-title"><h3>${isTop ? 'Best match to your priorities' : 'Selected measured point'}</h3><span class="tag">${pick.rows.length} pass${pick.rows.length===1?'':'es'}</span></div>
+      <div class="metrics"><div class="metric"><strong>${fmtNum(pick.decode)}</strong><span>decode tok/s per sequence</span></div><div class="metric"><strong>${fmtNum(pick.prefill)}</strong><span>prefill tok/s</span></div><div class="metric"><strong>${pick.requestSeconds ? pick.requestSeconds.toFixed(1) + " s" : "–"}</strong><span>per request when all ${pick.concurrency} arrive together</span></div><div class="metric"><strong>${tokens(pick.depth)}</strong><span>tested prompt tokens</span></div><div class="metric"><strong>${pick.concurrency}</strong><span>concurrent sequences</span></div></div>
+      <p class="note">${fmtNum(pick.total)} tok/s combined · ${tokens(p.ctx)} total context allocated · ${r.ntg} tokens generated per sequence.</p>
+      <div class="evidence-note note">${pick.rows.length===1 ? 'One observed pass; repeatability is untested.' : `Observed per-sequence range: ${fmtNum(pick.low)}–${fmtNum(pick.high)} tok/s.`} Last measured ${esc(r.ts.replace('T',' '))}.<br>Speed was measured at ${tokens(pick.depth)} prompt tokens, not throughout the ${tokens(p.ctx)} allocation.</div>
+      <div class="actions"><button id="exportSelection">Export selection + evidence</button><span class="note">Review for the next engine start.</span></div>
+      <details><summary>Exact engine settings &amp; consumer budget</summary><pre>${esc(JSON.stringify({backend:r.backend,...p,slots:r.B,consumerBudget:{maxPromptTokens:r.depth,maxOutputTokens:r.ntg,maxConcurrentRequests:r.B}},null,2))}</pre><p class="note">Receive the downloaded selection from the project folder:</p><pre>python -m sub0llmengine selection engine-selection.json --out chosen.engine.json</pre><p class="note">This checks local history and writes a separate config. Export contains the model/build identity and evidence. Server settings require validation and a restart; active requests are unchanged.</p></details>`;
+    $("exportSelection").onclick=()=>exportProfile(pick);
+  }
+  renderFrontier(pick);
+  const grouped=TuningEvidence.bestPer(runtimeRows,$("rankGroup").value);
+  const shown=grouped.slice(0,$("rankGroup").value==='all'?8:16);
+  if(pick && !shown.includes(pick)) shown.push(pick);
+  $("rankedChoices").innerHTML='<tr><th>Point</th><th>decode / seq</th><th>decode total</th><th>prefill</th><th>request</th><th>Prompt</th><th>Concurrency</th><th>Settings</th><th>Passes</th><th>Frontier</th></tr>'+shown.map((p,i)=>`<tr aria-selected="${p.key===pick?.key}"><td><button data-choice="${i}">Inspect ${runtimeRows.indexOf(p)+1}</button></td><td>${fmtNum(p.decode)}</td><td>${fmtNum(p.total)}</td><td>${fmtNum(p.prefill)}</td><td>${p.requestSeconds ? p.requestSeconds.toFixed(1) + " s" : "–"}</td><td>${tokens(p.depth)}</td><td>${p.concurrency}</td><td class="note">ncmoe ${p.record.params.nCpuMoe} · ctx ${tokens(p.record.params.ctx)} · ub ${p.record.params.ubatch}</td><td>${p.rows.length}</td><td>${p.frontier?'Yes':'–'}</td></tr>`).join('');
+  $("rankedChoices").querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{runtimePick=shown[+b.dataset.choice].key;renderRuntime();});
+  const requestedBs=$("exploreBs").value.split(',').map(Number).filter(n=>Number.isInteger(n)&&n>0);
+  const bs=uniq([...pool.accepted.map(p=>p.concurrency),...requestedBs]);
+  const anyB=!constraints.exactConcurrency && constraints.concurrency<=1;
+  $("concurrencySlices").innerHTML=`<button class="ghost" data-slice="all" aria-pressed="${anyB}" title="Any concurrency">All</button>`+bs.map(b=>{
+    const count=pool.accepted.filter(p=>p.concurrency===b).length;
+    return `<button class="ghost ${count?'':'unknown'}" data-slice="${b}" aria-pressed="${constraints.exactConcurrency&&constraints.concurrency===b}" title="${count?`${count} measured configuration${count===1?'':'s'} at ${b} concurrent request${b===1?'':'s'}`:`${b} concurrent requests: not measured yet (the Explore panel below can queue it)`}">B=${b}</button>`;
+  }).join('');
+  $("concurrencySlices").querySelectorAll('[data-slice]').forEach(b=>b.onclick=()=>{
+    if(b.dataset.slice==='all'){ $("minConcurrency").value=1; $("concurrencyMatch").value='minimum'; }
+    else { $("minConcurrency").value=b.dataset.slice; $("concurrencyMatch").value='exact'; }
+    runtimePick=null; renderRuntime();
+  });
+  scheduleCoverage();
+}
+function renderFrontier(pick) {
+  const svg=$("frontierPlot"); svg.innerHTML='';
+  const pts=runtimeRows.filter(p=>$("frontierMode").value==='all' || p.frontier || p.key===pick?.key);
+  $("rotationControl").hidden=$("projection").value!=='3d';
+  if($("projection").value==='3d') { renderVolume(svg,pts,pick); return; }
+  const W=Math.max(320,svg.parentElement.clientWidth), H=290, ml=54,mr=24,mt=26,mb=52;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  if(!pts.length) { el('text',{x:W/2,y:H/2,'text-anchor':'middle',class:'muted'},svg).textContent='No eligible measured points'; $("frontierLegend").textContent=''; return; }
+  const depths=uniq(runtimeRows.map(p=>p.depth)), lo=Math.log2(depths[0]), hi=Math.log2(depths.at(-1)), maxSpeed=Math.max(...runtimeRows.map(p=>p.speed))*1.15;
+  const sx=x=>ml+(hi===lo ? .5 : (Math.log2(x)-lo)/(hi-lo))*(W-ml-mr), sy=y=>H-mb-y/maxSpeed*(H-mt-mb);
+  for(let i=0;i<5;i++) { const v=maxSpeed*i/4,y=sy(v); el('line',{x1:ml,x2:W-mr,y1:y,y2:y,stroke:css('--line')},svg); el('text',{x:ml-8,y:y+4,'text-anchor':'end',class:'muted'},svg).textContent=fmtNum(v); }
+  depths.filter((_,i)=>i%Math.max(1,Math.ceil(depths.length/6))===0).forEach(d=>el('text',{x:sx(d),y:H-mb+20,'text-anchor':'middle',class:'muted'},svg).textContent=tokens(d));
+  el('text',{x:ml,y:13,class:'muted'},svg).textContent=(TuningEvidence.SPEED_METRICS[$("speedMetric").value]||'decode tok/s per sequence')+' ↑';
+  el('text',{x:(W+ml-mr)/2,y:H-8,'text-anchor':'middle',class:'muted'},svg).textContent='Tested prompt tokens per sequence → (log scale)';
+  const bs=uniq(runtimeRows.map(p=>p.concurrency));
+  const color=b=>concurrencyColor(b,bs);
+  for(const p of [...pts].sort((a,b)=>b.concurrency-a.concurrency)) {
+    const c=el('circle',{cx:sx(p.depth),cy:sy(p.speed),r:4+Math.sqrt(p.concurrency)*1.5,fill:color(p.concurrency),'fill-opacity':p.frontier?.85:.35,
+      stroke:p.frontier?css('--ink'):css('--panel'),'stroke-width':p.frontier?1.4:1,tabindex:0,role:'button',
+      'aria-label':`${fmtNum(p.speed)} tokens per second, ${p.depth} prompt tokens, ${p.concurrency} concurrent sequences, ${p.rows.length} passes`},svg);
+    c.style.cursor='pointer'; const select=()=>{runtimePick=p.key;renderRuntime();}; c.onclick=select;
+    c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select();}};
+    el('title',{},c).textContent=`${fmtNum(p.speed)} tok/s per sequence · ${p.depth} prompt tokens · B=${p.concurrency} · ${p.rows.length} passes`;
+  }
+  if(pick) el('circle',{cx:sx(pick.depth),cy:sy(pick.speed),r:9+Math.sqrt(pick.concurrency)*1.5,fill:'none',stroke:css('--accent'),'stroke-width':2,'pointer-events':'none'},svg);
+  $("frontierLegend").innerHTML=bs.map(b=>`<span><span class="sw" style="background:${color(b)}"></span>${b} sequence${b===1?'':'s'}</span>`).join('');
+}
+function renderVolume(svg,pts,pick) {
+  const W=Math.max(320,svg.parentElement.clientWidth),H=360;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  if(!pts.length) {el('text',{x:W/2,y:H/2,'text-anchor':'middle',class:'muted'},svg).textContent='No measured points for these requirements';$("frontierLegend").textContent='Unknown regions are in the coverage grid below.';return;}
+  const depths=uniq(pts.map(p=>p.depth)),bs=uniq(pts.map(p=>p.concurrency)),maxS=Math.max(...pts.map(p=>p.speed))*1.1;
+  const logNorm=(v,a)=>a.length===1?0:(Math.log2(v)-Math.log2(a[0]))/(Math.log2(a.at(-1))-Math.log2(a[0]));
+  const angle=+$("plotRotation").value*Math.PI/180,scale=Math.min(W*.49,320);
+  const project=(x,y,z)=>({x:W/2+(x*Math.cos(angle)-y*Math.sin(angle))*scale,y:H-83+(x*Math.sin(angle)+y*Math.cos(angle))*55-z*215,order:x*Math.sin(angle)+y*Math.cos(angle)});
+  const line=(a,b,attrs={})=>el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:css('--line'),...attrs},svg);
+  const origin=project(-.5,-.5,0);
+  for(const d of depths) {const x=logNorm(d,depths)-.5;line(project(x,-.5,0),project(x,.5,0));const p=project(x,-.5,0);el('text',{x:p.x,y:p.y+16,'text-anchor':'middle',class:'muted'},svg).textContent=tokens(d);}
+  for(const b of bs) {const y=logNorm(b,bs)-.5;line(project(-.5,y,0),project(.5,y,0));const p=project(-.5,y,0);el('text',{x:p.x-8,y:p.y+4,'text-anchor':'end',class:'muted'},svg).textContent=b;}
+  line(origin,project(-.5,-.5,1),{stroke:css('--muted')});
+  for(let i=1;i<=4;i++){const p=project(-.5,-.5,i/4);el('text',{x:p.x-8,y:p.y+4,'text-anchor':'end',class:'muted'},svg).textContent=fmtNum(maxS*i/4);}
+  el('text',{x:12,y:16,class:'muted'},svg).textContent='Height: decode tok/s per sequence';
+  el('text',{x:W/2,y:H-12,'text-anchor':'middle',class:'muted'},svg).textContent='Floor axes: prompt depth (k tokens) × concurrency · both log scale';
+  const color=b=>viridis(bs.length>1?bs.indexOf(b)/(bs.length-1):.5);
+  const projected=pts.map(p=>({p,xyz:project(logNorm(p.depth,depths)-.5,logNorm(p.concurrency,bs)-.5,p.speed/maxS),floor:project(logNorm(p.depth,depths)-.5,logNorm(p.concurrency,bs)-.5,0)})).sort((a,b)=>a.xyz.order-b.xyz.order);
+  for(const {p,xyz,floor} of projected){
+    line(floor,xyz,{stroke:color(p.concurrency),'stroke-opacity':.3});
+    const dot=el('circle',{cx:xyz.x,cy:xyz.y,r:p.key===pick?.key?8:5,fill:color(p.concurrency),stroke:p.key===pick?.key?css('--accent'):css('--panel'),'stroke-width':2,tabindex:0,role:'button','aria-label':`${p.depth} prompt tokens, ${p.concurrency} sequences, ${fmtNum(p.speed)} tokens per second`},svg);
+    el('title',{},dot).textContent=`${tokens(p.depth)} prompt · B=${p.concurrency} · ${fmtNum(p.speed)} tok/s per sequence`;
+    const select=()=>{runtimePick=p.key;renderRuntime();};dot.onclick=select;dot.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select();}};
+  }
+  $("frontierLegend").textContent='Measured points only. Lines locate each point on the workload floor; they are not fitted surfaces. Rotate to separate overlaps. Unknowns have no speed coordinate.';
+}
+
+function explorationSpec() {
+  const list=id=>$(id).value.split(',').map(s=>Number(s.trim()));
+  const fixed=$("exploreBase").value==='selected' ? (runtimeRows.find(p=>p.key===runtimePick)||runtimeRows[0])?.record.params : {};
+  if(!fixed) throw new Error('Select a measured point or use saved settings as the baseline.');
+    const spec={depths:list('exploreDepths'),concurrencies:list('exploreBs'),fixed,ntg:+$("exploreNtg").value,maxContext:+$("exploreCap").value,minSlotContext:Math.max(256,slotEffective||+$("slotContextMin").value||256),
+    minPasses:+$("exploreRepeats").value,maxRuns:+$("exploreRuns").value,timeoutSeconds:+$("exploreTimeout").value,verifyFailures:$("exploreVerify").value==='verify'};
+  if($("cohort").value){const [machine,backend,model,build]=JSON.parse($("cohort").value);spec.identity={machine,backend,model,build};}
+  if([...spec.depths,...spec.concurrencies].some(n=>!Number.isInteger(n)||n<1)) throw new Error('Enter positive integer depths and concurrencies, separated by commas.');
+  return spec;
+}
+function scheduleCoverage(force=false) {
+  clearTimeout(coverageTimer);
+  let spec;try{spec=explorationSpec();}catch(e){$("coverageSummary").textContent=e.message;$("queueCoverage").disabled=true;return;}
+  const signature=JSON.stringify(spec)+coverageRevision+Boolean(JOBS?.explorationAvailable);
+  if(!force&&signature===coverageSignature) return;
+  coverageSignature=signature;
+  const request=++coverageRequest;
+  $("queueCoverage").disabled=true;coveragePlan=null;
+  $("coverageGrid").innerHTML='';$("coverageDetail").textContent='Select a cell after coverage refreshes.';
+  coverageTimer=setTimeout(async()=>{
+    if(!JOBS?.explorationAvailable){$("coverageSummary").textContent='Coverage planning requires the upgraded server. The existing benchmark queue is being preserved until it is idle.';return;}
+    try{
+      const response=await fetch('/api/explore/plan',{method:'POST',body:JSON.stringify(spec)}),p=await response.json();
+      if(request!==coverageRequest) return;
+      if(p.error)throw new Error(p.error);
+      coveragePlan=p;coverageSpec=spec;
+      const counts={};p.cells.forEach(c=>counts[c.state]=(counts[c.state]||0)+1);
+      $("coverageSummary").textContent=Object.entries(counts).map(([k,n])=>`${n} ${k}`).join(' · ')+`. ${p.missingPasses} additional pass(es) requested; each queue action runs at most ${p.maxRuns}.`;
+      $("queueCoverage").disabled=!p.pending;
+      renderCoverage();
+    }catch(e){if(request===coverageRequest)$("coverageSummary").textContent=e.message;}
+  },400);
+}
+function renderCoverage() {
+  if(!coveragePlan)return;
+  const depths=uniq(coveragePlan.cells.map(c=>c.depth)),bs=uniq(coveragePlan.cells.map(c=>c.B));
+  const symbol={measured:'✓',thin:'◔',unknown:'?',inferred:'OOM?',oom:'OOM',mixed:'!',error:'!',budget:'—',policy:'—'};
+  $("coverageGrid").innerHTML='<tr><th>Prompt / sequences →</th>'+bs.map(b=>`<th>${b}</th>`).join('')+'</tr>'+depths.map(d=>'<tr><th>'+tokens(d)+'</th>'+bs.map(b=>{
+    const c=coveragePlan.cells.find(c=>c.depth===d&&c.B===b),key=d+':'+b;
+    return `<td><button class="coverage-cell ${c.state}" data-coverage="${key}" aria-pressed="${coverageCell===key}" aria-label="${d} prompt tokens, ${b} sequences: ${c.state}, ${c.passes} passes" title="${esc(c.reason)}; ctx ${c.params.ctx}">${symbol[c.state]}${c.passes?' '+c.passes+'×':''}</button></td>`;
+  }).join('')+'</tr>').join('');
+  $("coverageGrid").querySelectorAll('[data-coverage]').forEach(b=>b.onclick=()=>{coverageCell=b.dataset.coverage;renderCoverage();});
+  const c=coveragePlan.cells.find(c=>c.depth+':'+c.B===coverageCell);
+  if(c){$("coverageDetail").innerHTML=`<b>${tokens(c.depth)} prompt tokens × ${c.B} sequences</b> · ${esc(c.state)}<br>${esc(c.reason)}. ${c.passes} successful passes / ${c.attempts} attempts. ${c.speed===null?'Speed unknown.':fmtNum(c.speed)+' observed tok/s per sequence.'}<br>Total allocation: ${c.params.ctx.toLocaleString()} tokens; includes ${coveragePlan.ntg} generated tokens per sequence. ${c.state==='budget'?'Raise the allocation ceiling to plan this point.':''}<details><summary>Exact settings</summary><pre>${esc(JSON.stringify(c.params,null,2))}</pre></details><button id="queueCoveragePoint" ${c.pending?'':'disabled'}>Queue this point</button>`;
+    $("queueCoveragePoint").onclick=()=>queueExploration({...coverageSpec,depths:[c.depth],concurrencies:[c.B]});}
+}
+async function queueExploration(spec) {
+  $("queueCoverage").disabled=true; if($("queueCoveragePoint"))$("queueCoveragePoint").disabled=true;
+  try{const p=await(await fetch('/api/explore',{method:'POST',body:JSON.stringify(spec)})).json();if(p.error)throw new Error(p.error);
+    $("coverageSummary").textContent=`Queued a bounded request: ${spec.depths.join(',')} prompt tokens × B ${spec.concurrencies.join(',')}; up to ${spec.maxRuns} runs, ${spec.timeoutSeconds}s per run. Existing jobs stay ahead of it.`;
+    pollJobs();
+  }catch(e){$("coverageSummary").textContent='Could not queue: '+e.message;}
+}
+$("queueCoverage").onclick=()=>{if(coveragePlan&&coverageSpec)queueExploration(coverageSpec);};
+$("planCoverage").onclick=()=>scheduleCoverage(true);
+$("extendTargets").onclick=()=>{
+  const merge=(id,n)=>{if(n>0)$(id).value=uniq([...$(id).value.split(',').map(Number).filter(v=>v>0),n]).join(',');};
+  merge('exploreDepths',+$("minDepth").value);merge('exploreBs',+$("minConcurrency").value);scheduleCoverage(true);
+  merge('exploreDepths',Math.max(1,(slotEffective||+$("slotContextMin").value||2048)-+$("exploreNtg").value));scheduleCoverage(true);
+};
+for(const id of ['exploreDepths','exploreBs','exploreNtg','exploreCap','exploreRepeats','exploreRuns','exploreTimeout'])$(id).oninput=()=>scheduleCoverage();
+for(const id of ['exploreBase','exploreVerify'])$(id).onchange=()=>scheduleCoverage();
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
+  activeView=b.dataset.tab;
+  document.querySelectorAll('[data-tab]').forEach(t=>t.setAttribute('aria-pressed',String(t===b)));
+  document.querySelectorAll('[data-view]:not(body)').forEach(s=>s.hidden=s.dataset.view!==activeView);  // body carries data-view for CSS only
+  document.body.dataset.view=activeView;
+  renderAll();
+});
+function renderAll() { renderFilters(); renderHeat(); renderTri(); renderHist(); renderRuntime(); if (selected) renderSelection(); if(activeView==='map') refreshPlan(); }
 
 async function loadHistory(mid) {
-  DATA = await (await fetch("/api/history" + (mid ? "?machine=" + encodeURIComponent(mid) : ""))).json();
+  const request=++historyRequest;
+  const next = await (await fetch("/api/history" + (mid ? "?machine=" + encodeURIComponent(mid) : ""))).json();
+  if(request!==historyRequest) return;
+  if(next.error) throw new Error(next.error);
+  const changed=JSON.stringify(next.records)!==JSON.stringify(DATA.records);
+  DATA=next;
   DATA.records.sort((a, b) => a.ts.localeCompare(b.ts));
   const m = DATA.machine;
   $("machineMeta").textContent = `${m.cpu} · ${m.gpu ? m.gpu.name + " " + m.gpu.vramMiB + " MiB" : "no GPU"} · ${m.ramGiB} GiB RAM · ${DATA.records.length} records`;
   const sel = $("machineSel");
-  if (!sel.options.length) { sel.innerHTML = DATA.machines.map(x => `<option>${x}</option>`).join(""); sel.value = m.id; sel.onchange = () => loadHistory(sel.value); }
-  renderAll();
+  if (!sel.options.length) { sel.replaceChildren(...DATA.machines.map(x=>new Option(x,x))); sel.value = m.id; sel.onchange = () => {selected=null;runtimePick=null;loadHistory(sel.value).catch(showLoadError);}; }
+  if(changed) { coverageRevision++; if(lastHistoryCount!==null && DATA.records.length>lastHistoryCount)lastRecordObserved=Date.now(); lastHistoryCount=DATA.records.length; runtimeScopes(); renderAll(); }
+}
+let lastConfigRead=0;
+let AXES_DEF = null;
+const TRANSFER_TEXT = {kept:'kept', 'restored-not-reused':'restored, not reused', lost:'lost', unmeasured:'not measured'};
+async function loadAxes() {
+  try {
+    const r = await fetch("/api/axes"); if (!r.ok) throw new Error(r.status);
+    AXES_DEF = await r.json(); TuningEvidence.useAxes(AXES_DEF);
+  } catch (e) { $("axesSummary").textContent = "this server does not provide /api/axes yet (restart it to read the definition)"; return; }
+  const d = AXES_DEF, load = d.knobs.filter(k => k.change === 'load'), kept = load.filter(k => k.transfer === 'kept').length;
+  $("axesSummary").textContent = `${d.backend}: ${d.knobs.length} knobs, ${load.length} need a restart · context kept across ${kept} of them` +
+    (d.transfer ? ` · ${d.transfer.experiments} spike experiment${d.transfer.experiments === 1 ? '' : 's'}` : '');
+  $("axesTable").innerHTML = '<tr><th>Knob</th><th>Now</th><th>Changes at</th><th>Moves</th><th>Context across a change</th><th>Note</th></tr>' +
+    d.knobs.map(k => `<tr><td><b>${esc(k.id)}</b> <span class="note">${esc(k.flag || k.field || '')}</span></td><td>${esc(k.current ?? '–')}</td>` +
+      `<td>${k.change === 'load' ? 'load (restart)' : 'per request'}</td><td>${esc((k.affects || []).join(', ') || '–')}</td>` +
+      `<td>${k.change === 'load' ? esc(TRANSFER_TEXT[k.transfer] || k.transfer) : 'n/a'}</td><td class="note">${esc(k.note || '')}</td></tr>`).join('');
 }
 async function loadConfig() {
   const c = await (await fetch("/api/config")).json();
+  if(c.error) throw new Error(c.error);
+  const factsArrived = c.facts && !(CONFIG && CONFIG.facts);
+  CONFIG=c;
+  lastConfigRead=Date.now();
+  if (factsArrived && typeof DATA !== "undefined" && DATA) renderAll();  // axis labels and guidance use the model's facts
   const cf = c.config;
-  $("cfgInfo").innerHTML = `<b>${c.running ? "engine running" : "engine stopped"}</b> at ${c.url}${c.engine ? ` · ${c.engine.slots} slots, ${c.engine.nCtxPerSlot} ctx/slot` : ""}<br>` +
-    `ncmoe ${cf.nCpuMoe} · ctx ${cf.ctx} · slots ${cf.slots} · ub ${cf.ubatch} · t ${cf.threads} · KV ${cf.cacheTypeK}/${cf.cacheTypeV}<br><span class="note">saved in ${c.file}</span>`;
+  $("cfgInfo").innerHTML = `<b>${c.running ? "engine running" : "engine stopped"}</b> at ${esc(c.url)}${c.engine ? ` · ${c.engine.busy} busy / ${c.engine.slots} slots · reported context/slot ${c.engine.nCtxPerSlot}` : ""}<br>` +
+    `Saved for next start: ncmoe ${cf.nCpuMoe} · ctx ${cf.ctx} · slots ${cf.slots} · ub ${cf.ubatch} · t ${cf.threads} · KV ${esc(cf.cacheTypeK)}/${esc(cf.cacheTypeV)}<br><span class="note">${esc(c.file)} · checked ${new Date().toLocaleTimeString()}</span>`;
   $("cfgCmd").textContent = c.command.join(" ");
+  scheduleCoverage();
 }
-let lastDone = 0;
+function renderActivity(j) {
+  const a=j.benchmark, recent=lastRecordObserved?`${Math.round((Date.now()-lastRecordObserved)/1000)}s ago`:'none since this page opened';
+  const latest=DATA.records.at(-1)?.ts?.replace('T',' ')||'none';
+  const lines=[`Server ${j.serverPid||'legacy'} · ${j.current?'job active':'queue idle'} · ${j.queue.length} queued`,`${DATA.records.length} records · new data received: ${recent}`,`Latest record: ${latest}`];
+  if(!a?.phase)lines.push('This server does not yet report child-process telemetry. Job labels alone cannot prove activity.');
+  else if(a.phase==='running'){
+    const same=previousActivity?.pid===a.pid,delta=same&&a.cpuSeconds!==null&&previousActivity.cpuSeconds!==null?a.cpuSeconds-previousActivity.cpuSeconds:null;
+    lines.push(`Benchmark PID ${a.pid} · elapsed ${Math.round(a.elapsedSeconds)}s${a.timeoutSeconds?' / '+a.timeoutSeconds+'s limit':''}`);
+    lines.push(a.heartbeatAgeSeconds>10?`Heartbeat stale (${a.heartbeatAgeSeconds}s): inspect the worker.`:`Heartbeat ${a.heartbeatAgeSeconds}s ago`);
+    lines.push(delta===null?'CPU progress: awaiting a second sample':delta>0?`CPU advancing: +${delta.toFixed(1)} CPU seconds since last poll`:'CPU unchanged since last poll; may be waiting or stalled.');
+    lines.push(`Captured output: ${a.outputBytes||0} characters${same&&a.outputBytes>previousActivity.outputBytes?' · increasing':''}`);
+    if(a.lastLine?.length)lines.push(a.lastLine[0]);
+  } else if(a.phase==='waiting-lock')lines.push(`Waiting on lock owner ${a.lockOwner}. No benchmark is launched by this worker yet. Inspect the owner before recovering a stale lock.`);
+  else lines.push(`Last invocation ${a.phase}: ${a.outcome||''}, ${a.recordsWritten||0} records written.`);
+  $("benchmarkActivity").textContent=lines.join('\n');previousActivity=a;
+}
+let lastDone = 0, jobsTimer=null, jobsPolling=false;
 async function pollJobs() {
+  if(jobsPolling) return;
+  clearTimeout(jobsTimer); jobsPolling=true;
   try {
     const j = await (await fetch("/api/jobs")).json();
+    if(j.error) throw new Error(j.error);
+    JOBS=j;
+    renderActivity(j);scheduleCoverage();
+    $("liveState").textContent=j.current?'Measuring':'Connected';
+    $("liveSummary").textContent=(j.current ? j.progress+' · ' : '')+j.queue.length+' queued · history refreshes every 5 seconds';
     $("jobs").textContent = (j.current ? "running: " + j.progress : (j.progress || "idle")) + (j.queue.length ? `\nqueued: ${j.queue.length}` : "") +
       (j.done.length ? "\n" + j.done.slice(-3).map(d => d.ts + " " + d.result).join("\n") : "");
-    if (j.current || j.done.length !== lastDone) { lastDone = j.done.length; loadHistory($("machineSel").value); }
-  } catch {}
-  setTimeout(pollJobs, 5000);
+    lastDone = j.done.length; await loadHistory($("machineSel").value);
+    if(selected) renderSelection();
+    if(Date.now()-lastConfigRead>30000) { await loadConfig(); loadAxes(); }  // the axes definition follows config (spike results change it)
+  } catch(e) { showLoadError(e); }
+  jobsPolling=false; jobsTimer=setTimeout(pollJobs, 5000);
 }
 $("sweepBtn").onclick = async () => {
   const list = (id, conv = Number) => $(id).value.split(",").map(s => s.trim()).filter(Boolean).map(conv);
@@ -379,10 +1571,11 @@ $("sweepBtn").onclick = async () => {
   await fetch("/api/sweep", { method: "POST", body: JSON.stringify(body) });
   pollJobs();
 };
-addEventListener("resize", () => { renderTri(); renderHist(); });
+function showLoadError(e) { $("liveState").textContent='Connection issue'; $("liveSummary").textContent='Showing last loaded evidence. '+e.message; }
+addEventListener("resize", () => { renderTri(); renderHist(); renderFrontier(runtimeRows.find(p=>p.key===runtimePick)||runtimeRows[0]); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
 buildControls();
-loadHistory().then(loadConfig);
+loadHistory().then(loadConfig).catch(showLoadError);
 pollJobs();
 </script>
 </body>
