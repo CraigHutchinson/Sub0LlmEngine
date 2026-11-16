@@ -56,7 +56,11 @@ Work for Sub0LlmEngine, in rough priority order. Moved here from Sub0Squad's bac
   has room). Needed from the engine: pool headroom in `status --json` (used and free cells, from `/slots` token counts:
   llama-server's `/metrics` has no KV usage), so a client can admit or grow a request; an exhaustion signal it can tell
   apart (`finish_reason: "length"` for one request, "Context size has been exceeded." for all of them); and a spike that
-  fills the pool with 4 growing requests to see the failure and its recovery cost. On a full pool with every slot busy
+  fills the pool with 4 growing requests to see the failure and its recovery cost. Pool watermark: llama-server has none
+  (upstream `c7518db`), so the engine computes it from `/slots` (`n_prompt_tokens` of busy slots = used; idle slots'
+  tokens = reclaimable, the server clears them on demand; pool minus busy = free; shared prefixes counted twice, so it
+  errs safe) and publishes `pool: {size, used, reclaimable, free, busySlots, level}` in `status --json` and a small
+  `/pool` endpoint, with levels `ok` / `notice` (70 % used) / `warning` (85 %) / `critical` (95 %). On a full pool with every slot busy
   llama-server fails all active requests (`server-context.cpp`, TODO: end only the largest sequence): a candidate
   upstream patch.
 - Upstream added `--kv-unified-per-slot N` (ggml-org/llama.cpp#24124, 2026-08-27; not in b9413): a context cap per slot
