@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engine Tuning Map</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc; --accent: #2f6fdb;
+  --ok: #2e9e5b; --oom: #d6453d; --err: #8a8a85; --sel: #111;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #141413; --panel: #1e1e1c; --ink: #ecebe6; --muted: #9b9a94; --line: #34332f; --accent: #6ea0ff;
+    --ok: #4cc27f; --oom: #ff6b61; --err: #77766f; --sel: #fff; }
+}
+:root[data-theme="dark"] { --bg: #141413; --panel: #1e1e1c; --ink: #ecebe6; --muted: #9b9a94; --line: #34332f; --accent: #6ea0ff;
+  --ok: #4cc27f; --oom: #ff6b61; --err: #77766f; --sel: #fff; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 14px 16px 6px; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; }
+header h1 { font-size: 18px; margin: 0; }
+header .meta { color: var(--muted); font-size: 12.5px; }
+main { padding: 0 16px 24px; display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) 360px; }
+@media (max-width: 1000px) { main { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; }
+.panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin-bottom: 10px; }
+label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+select, input { font: inherit; font-size: 13px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; min-width: 0; }
+input { width: 100%; }
+button { font: inherit; font-size: 13px; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+button.ghost { background: transparent; color: var(--accent); }
+.filters { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 8px 0; border-top: 1px dashed var(--line); }
+.scroll { overflow-x: auto; }
+svg text { fill: var(--ink); font-size: 11px; }
+svg .muted { fill: var(--muted); }
+.cell { cursor: pointer; }
+.cell:hover rect.bg { stroke: var(--sel); stroke-width: 1.5; }
+.legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
+.legend .bar { width: 160px; height: 10px; border-radius: 3px; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 3px; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th, td { text-align: right; padding: 3px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+.pill { display: inline-block; padding: 0 6px; border-radius: 9px; font-size: 11px; color: #fff; }
+pre { white-space: pre-wrap; word-break: break-all; font-size: 11.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 6px; margin: 6px 0 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+.side { display: grid; gap: 14px; align-content: start; }
+.note { color: var(--muted); font-size: 12px; }
+#tip { position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.15); display: none; max-width: 340px; z-index: 5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Engine tuning map</h1>
+  <span class="meta" id="machineMeta">loading…</span>
+  <label style="margin-left:auto">Machine <select id="machineSel"></select></label>
+</header>
+<main>
+  <div style="display:grid; gap:14px; min-width:0">
+    <section class="panel">
+      <h2>Heatmap</h2>
+      <div class="controls">
+        <label>X axis <select id="xAxis"></select></label>
+        <label>Y axis <select id="yAxis"></select></label>
+        <label>Layer <select id="layer"></select></label>
+        <label>Combine <select id="agg"><option value="best">best</option><option value="latest">latest</option><option value="median">median</option></select></label>
+      </div>
+      <div class="filters" id="filters"></div>
+      <div class="scroll"><svg id="heat"></svg></div>
+      <div class="legend" id="legend"></div>
+      <p class="note">Each cell combines every run matching its X, Y and the filters. Red cells failed (out of memory) at that point; grey ones errored. Click a cell to inspect its runs and use the configuration.</p>
+    </section>
+    <section class="panel">
+      <h2>Speed · context · concurrency</h2>
+      <div class="controls">
+        <label>Y <select id="triY"><option value="tgPerSeq">decode per sequence (tok/s)</option><option value="tgTps">decode, all sequences (tok/s)</option><option value="ppTps">prefill (tok/s)</option></select></label>
+        <label>X <select id="triX"><option value="depth">context depth per sequence</option><option value="ctxPerSeq">context budget per sequence (ctx ÷ B)</option><option value="ctx">total context</option></select></label>
+      </div>
+      <div class="scroll"><svg id="tri"></svg></div>
+      <p class="note">One dot per successful run (filters above apply); colour and size show concurrency B. The upper-right edge for a given colour is the achievable trade-off.</p>
+    </section>
+    <section class="panel">
+      <h2>History</h2>
+      <div class="scroll"><svg id="hist"></svg></div>
+      <p class="note">Every run on this machine over time, for the heatmap's layer. Failures sit on the baseline.</p>
+    </section>
+  </div>
+  <div class="side">
+    <section class="panel">
+      <h2>Selection</h2>
+      <div id="selInfo" class="note">Click a heatmap cell.</div>
+      <div class="scroll"><table id="selTable"></table></div>
+      <div id="selActions" style="margin-top:8px; display:none">
+        <button id="applyBtn">Use this configuration</button>
+        <span class="note" id="applyMsg"></span>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Current configuration</h2>
+      <div id="cfgInfo" class="note">…</div>
+      <pre id="cfgCmd"></pre>
+    </section>
+    <section class="panel">
+      <h2>Queue a sweep</h2>
+      <div class="grid2">
+        <label>CPU MoE layers <input id="swNcmoe" placeholder="30,32,34"></label>
+        <label>Total context <input id="swCtx" placeholder="65536,131072"></label>
+        <label>Depth per sequence <input id="swDepth" value="2048"></label>
+        <label>Concurrency B <input id="swB" value="1,4,8"></label>
+        <label>ubatch <input id="swUb" placeholder="512"></label>
+        <label>Threads <input id="swT" placeholder="16"></label>
+        <label>Tokens generated <input id="swNtg" value="128"></label>
+        <label>Note <input id="swNote"></label>
+      </div>
+      <div style="margin-top:8px; display:flex; gap:8px; align-items:center">
+        <button id="sweepBtn">Queue</button><span class="note">Empty fields use the current configuration.</span>
+      </div>
+      <pre id="jobs">idle</pre>
+    </section>
+  </div>
+</main>
+<div id="tip"></div>
+<script>
+const AXES = {
+  nCpuMoe: { label: "CPU MoE layers", get: r => r.params.nCpuMoe },
+  ctx: { label: "total context", get: r => r.params.ctx, fmt: v => v >= 1024 ? (v / 1024) + "k" : v },
+  B: { label: "concurrency B", get: r => r.B },
+  depth: { label: "depth per sequence", get: r => r.depth, fmt: v => v >= 1024 ? (v / 1024) + "k" : v },
+  ubatch: { label: "ubatch", get: r => r.params.ubatch },
+  batch: { label: "batch", get: r => r.params.batch },
+  threads: { label: "threads", get: r => r.params.threads },
+  ntg: { label: "tokens generated", get: r => r.ntg },
+  kv: { label: "KV cache type", get: r => r.params.cacheTypeK + "/" + r.params.cacheTypeV },
+  model: { label: "model", get: r => r.model, fmt: v => String(v).split("#").pop() },
+  build: { label: "build", get: r => r.build },
+};
+const LAYERS = {
+  tgTps: { label: "decode, all sequences (tok/s)", get: r => r.tgTps, unit: "" },
+  tgPerSeq: { label: "decode per sequence (tok/s)", get: r => r.tgPerSeq, unit: "" },
+  ppTps: { label: "prefill (tok/s)", get: r => r.ppTps, unit: "" },
+  peakVramMiB: { label: "peak VRAM (MiB)", get: r => r.peakVramMiB, unit: "", any: true, invert: true },
+  outcome: { label: "works / fails", get: r => r.outcome === "ok" ? 1 : 0, any: true },
+  runs: { label: "runs measured", get: r => 1, any: true },
+};
+let DATA = { records: [], machine: null, machines: [] };
+let filters = {};
+let selected = null;
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmtNum = v => v == null ? "–" : (Math.abs(v) >= 100 ? Math.round(v) : (+v).toFixed(1));
+const axisFmt = (a, v) => AXES[a].fmt ? AXES[a].fmt(v) : String(v);
+function uniq(a) { return [...new Set(a)].sort((x, y) => (typeof x === "number" && typeof y === "number") ? x - y : String(x).localeCompare(String(y))); }
+
+function viridis(t) {
+  const s = [[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
+  t = Math.max(0, Math.min(1, t)) * (s.length - 1);
+  const i = Math.min(s.length - 2, Math.floor(t)), f = t - i;
+  const c = s[i].map((v, k) => Math.round(v + (s[i + 1][k] - v) * f));
+  return `rgb(${c})`;
+}
+function textOn(t) { return t > 0.62 ? "#111" : "#fff"; }
+function el(tag, attrs, parent) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function tip(html, ev) {
+  const t = $("tip");
+  if (!html) { t.style.display = "none"; return; }
+  t.innerHTML = html; t.style.display = "block";
+  const x = Math.min(ev.clientX + 14, innerWidth - t.offsetWidth - 8), y = Math.min(ev.clientY + 14, innerHeight - t.offsetHeight - 8);
+  t.style.left = x + "px"; t.style.top = y + "px";
+}
+function describe(r) {
+  const p = r.params;
+  return `<b>${r.outcome}</b> · ${r.ts.replace("T", " ")}<br>ncmoe ${p.nCpuMoe} · ctx ${p.ctx} · B ${r.B} · depth ${r.depth} · ub ${p.ubatch} · t ${p.threads}<br>` +
+    (r.outcome === "ok" ? `decode ${fmtNum(r.tgTps)} (${fmtNum(r.tgPerSeq)}/seq) · prefill ${fmtNum(r.ppTps)}` : (r.error || "")) +
+    `<br>peak VRAM ${r.peakVramMiB ?? "–"} MiB${r.note ? "<br><i>" + r.note + "</i>" : ""}`;
+}
+
+function filtered(exclude) {
+  return DATA.records.filter(r => Object.entries(filters).every(([a, v]) => exclude.includes(a) || v === "*" || String(AXES[a].get(r)) === v));
+}
+function combine(vals, how, recs) {
+  if (!vals.length) return null;
+  if (how === "best") return Math.max(...vals);
+  if (how === "latest") { let best = 0; recs.forEach((r, i) => { if (r.ts > recs[best].ts) best = i; }); return vals[best]; }
+  const s = [...vals].sort((a, b) => a - b); return s[Math.floor(s.length / 2)];
+}
+
+function buildControls() {
+  const opts = (sel, obj, cur) => { sel.innerHTML = Object.entries(obj).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join(""); sel.value = cur; };
+  opts($("xAxis"), AXES, localGet("x", "ctx")); opts($("yAxis"), AXES, localGet("y", "nCpuMoe")); opts($("layer"), LAYERS, localGet("layer", "tgTps"));
+  for (const id of ["xAxis", "yAxis", "layer", "agg", "triX", "triY"]) $(id).onchange = () => { localSet({ xAxis: "x", yAxis: "y", layer: "layer" }[id] || id, $(id).value); renderAll(); };
+}
+function localGet(k, d) { try { return localStorage.getItem("tune." + k) || d; } catch { return d; } }
+function localSet(k, v) { try { localStorage.setItem("tune." + k, v); } catch {} }
+
+function renderFilters() {
+  const x = $("xAxis").value, y = $("yAxis").value;
+  const box = $("filters"); box.innerHTML = "";
+  for (const a of Object.keys(AXES)) {
+    if (a === x || a === y) continue;
+    const vals = uniq(DATA.records.map(r => AXES[a].get(r)));
+    if (vals.length < 2 && !filters[a]) continue;
+    if (!(a in filters)) filters[a] = "*";
+    const lab = document.createElement("label");
+    lab.textContent = AXES[a].label;
+    const s = document.createElement("select");
+    s.innerHTML = `<option value="*">any</option>` + vals.map(v => `<option value="${v}">${axisFmt(a, v)}</option>`).join("");
+    s.value = filters[a]; s.onchange = () => { filters[a] = s.value; renderAll(); };
+    lab.appendChild(s); box.appendChild(lab);
+  }
+  for (const a of [x, y]) delete filters[a];
+}
+
+function renderHeat() {
+  const x = $("xAxis").value, y = $("yAxis").value, L = LAYERS[$("layer").value], how = $("agg").value;
+  const recs = filtered([x, y]);
+  const xs = uniq(recs.map(r => AXES[x].get(r))), ys = uniq(recs.map(r => AXES[y].get(r))).reverse();
+  const cells = new Map();
+  for (const r of recs) {
+    const k = AXES[x].get(r) + "|" + AXES[y].get(r);
+    if (!cells.has(k)) cells.set(k, []);
+    cells.get(k).push(r);
+  }
+  const values = [];
+  const info = new Map();
+  for (const [k, rs] of cells) {
+    const use = L.any ? rs : rs.filter(r => r.outcome === "ok");
+    let v = null;
+    if ($("layer").value === "outcome") v = rs.filter(r => r.outcome === "ok").length / rs.length;
+    else if ($("layer").value === "runs") v = rs.length;
+    else v = combine(use.map(L.get).filter(n => n != null), how, use.filter(r => L.get(r) != null));
+    const fails = rs.filter(r => r.outcome !== "ok");
+    info.set(k, { v, rs, fails, oom: fails.some(r => r.outcome === "oom") });
+    if (v != null) values.push(v);
+  }
+  const lo = Math.min(...values), hi = Math.max(...values);
+  const norm = v => hi > lo ? (v - lo) / (hi - lo) : 0.6;
+  const cw = Math.max(54, Math.min(92, 760 / Math.max(1, xs.length))), ch = 30, ml = 74, mt = 8, mb = 40;
+  const svg = $("heat"); svg.innerHTML = "";
+  const W = ml + xs.length * cw + 8, H = mt + ys.length * ch + mb;
+  svg.setAttribute("width", W); svg.setAttribute("height", H); svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const defs = el("defs", {}, svg);
+  const pat = el("pattern", { id: "hatch", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+  el("rect", { width: 6, height: 6, fill: css("--oom"), opacity: .25 }, pat);
+  el("line", { x1: 0, y1: 0, x2: 0, y2: 6, stroke: css("--oom"), "stroke-width": 2.5 }, pat);
+  ys.forEach((yv, j) => { const t = el("text", { x: ml - 6, y: mt + j * ch + ch / 2 + 4, "text-anchor": "end" }, svg); t.textContent = axisFmt(y, yv); });
+  xs.forEach((xv, i) => { const t = el("text", { x: ml + i * cw + cw / 2, y: mt + ys.length * ch + 15, "text-anchor": "middle" }, svg); t.textContent = axisFmt(x, xv); });
+  const xl = el("text", { x: ml + xs.length * cw / 2, y: H - 6, "text-anchor": "middle", class: "muted" }, svg); xl.textContent = AXES[x].label;
+  const yl = el("text", { x: 10, y: mt + ys.length * ch / 2, "text-anchor": "middle", class: "muted", transform: `rotate(-90 10 ${mt + ys.length * ch / 2})` }, svg); yl.textContent = AXES[y].label;
+  ys.forEach((yv, j) => xs.forEach((xv, i) => {
+    const k = xv + "|" + yv, c = info.get(k);
+    if (!c) return;
+    const g = el("g", { class: "cell" }, svg);
+    let fill, label = "", tcol = css("--ink");
+    if (c.v == null) { fill = c.oom ? "url(#hatch)" : css("--err"); label = c.oom ? "OOM" : "err"; tcol = c.oom ? css("--oom") : "#fff"; }
+    else if ($("layer").value === "outcome") { fill = c.v === 1 ? css("--ok") : c.v === 0 ? "url(#hatch)" : css("--err"); label = c.v === 1 ? "ok" : c.v === 0 ? "fail" : Math.round(c.v * 100) + "%"; tcol = c.v === 0 ? css("--oom") : "#fff"; }
+    else { const t = L.invert ? 1 - norm(c.v) : norm(c.v); fill = viridis(t); label = fmtNum(c.v); tcol = textOn(t); }
+    el("rect", { class: "bg", x: ml + i * cw + 1, y: mt + j * ch + 1, width: cw - 2, height: ch - 2, rx: 3, fill }, g);
+    const t = el("text", { x: ml + i * cw + cw / 2, y: mt + j * ch + ch / 2 + 4, "text-anchor": "middle", style: `fill:${tcol}` }, g);
+    t.textContent = label + (c.fails.length && c.v != null && $("layer").value !== "outcome" ? " !" : "");
+    if (selected && selected.k === k) el("rect", { x: ml + i * cw + 1, y: mt + j * ch + 1, width: cw - 2, height: ch - 2, rx: 3, fill: "none", stroke: css("--sel"), "stroke-width": 2 }, g);
+    g.onmousemove = ev => tip(`<b>${AXES[x].label} ${axisFmt(x, xv)} · ${AXES[y].label} ${axisFmt(y, yv)}</b><br>${c.rs.length} run(s), ${c.fails.length} failed<br>${L.label}: ${fmtNum(c.v)}`, ev);
+    g.onmouseleave = () => tip(null);
+    g.onclick = () => { selected = { k, x, y, xv, yv, rs: c.rs }; renderSelection(); renderHeat(); };
+  }));
+  const lg = $("legend");
+  if ($("layer").value === "outcome") lg.innerHTML = `<span><span class="sw" style="background:${css("--ok")}"></span>works</span><span><span class="sw" style="background:${css("--oom")}"></span>out of memory</span><span><span class="sw" style="background:${css("--err")}"></span>mixed / error</span>`;
+  else if (values.length) lg.innerHTML = `<span>${L.label}</span><span>${fmtNum(L.invert ? hi : lo)}</span><span class="bar" style="background:linear-gradient(90deg,${[0, .25, .5, .75, 1].map(viridis).join(",")})"></span><span>${fmtNum(L.invert ? lo : hi)}</span><span>· “!” = some runs in the cell failed</span>`;
+  else lg.textContent = "No runs match the filters.";
+}
+
+function renderSelection() {
+  if (!selected) return;
+  const rs = [...selected.rs].sort((a, b) => b.ts.localeCompare(a.ts));
+  $("selInfo").innerHTML = `${AXES[selected.x].label} <b>${axisFmt(selected.x, selected.xv)}</b>, ${AXES[selected.y].label} <b>${axisFmt(selected.y, selected.yv)}</b>: ${rs.length} run(s)`;
+  const pill = o => `<span class="pill" style="background:${o === "ok" ? css("--ok") : o === "oom" ? css("--oom") : css("--err")}">${o}</span>`;
+  $("selTable").innerHTML = `<tr><th>when</th><th>ncmoe</th><th>ctx</th><th>B</th><th>depth</th><th>ub</th><th>t</th><th>decode</th><th>/seq</th><th>prefill</th><th>VRAM</th><th></th></tr>` +
+    rs.slice(0, 40).map((r, i) => `<tr data-i="${i}" style="cursor:pointer"><td>${r.ts.slice(5, 16).replace("T", " ")}</td><td>${r.params.nCpuMoe}</td><td>${r.params.ctx / 1024}k</td><td>${r.B}</td><td>${r.depth}</td><td>${r.params.ubatch}</td><td>${r.params.threads}</td><td>${fmtNum(r.tgTps)}</td><td>${fmtNum(r.tgPerSeq)}</td><td>${fmtNum(r.ppTps)}</td><td>${r.peakVramMiB ?? "–"}</td><td>${pill(r.outcome)}</td></tr>`).join("");
+  const okRuns = rs.filter(r => r.outcome === "ok");
+  let pick = okRuns.sort((a, b) => (b.tgTps || 0) - (a.tgTps || 0))[0];
+  const act = $("selActions"); act.style.display = pick ? "block" : "none";
+  const choose = r => { pick = r; $("applyMsg").textContent = `ncmoe ${r.params.nCpuMoe}, ctx ${r.params.ctx}, slots ${r.B}, ub ${r.params.ubatch}, t ${r.params.threads}`; };
+  if (pick) choose(pick);
+  $("selTable").querySelectorAll("tr[data-i]").forEach(tr => {
+    const r = rs[+tr.dataset.i];
+    tr.onmousemove = ev => tip(describe(r), ev); tr.onmouseleave = () => tip(null);
+    tr.onclick = () => { if (r.outcome === "ok") choose(r); };
+  });
+  $("applyBtn").onclick = async () => {
+    const p = pick.params;
+    const body = { nCpuMoe: p.nCpuMoe, ctx: p.ctx, ubatch: p.ubatch, batch: p.batch, threads: p.threads, cacheTypeK: p.cacheTypeK, cacheTypeV: p.cacheTypeV, kvUnified: p.kvUnified, slots: pick.B };
+    const res = await (await fetch("/api/apply", { method: "POST", body: JSON.stringify(body) })).json();
+    $("applyMsg").textContent = res.error ? res.error : `saved to ${res.file}; restart the engine to use it`;
+    loadConfig();
+  };
+}
+
+function scatter(svg, pts, opts) {
+  svg.innerHTML = "";
+  const W = Math.max(520, svg.parentElement.clientWidth - 4), H = 260, ml = 52, mr = 12, mt = 10, mb = 36;
+  svg.setAttribute("width", W); svg.setAttribute("height", H); svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  if (!pts.length) { const t = el("text", { x: W / 2, y: H / 2, "text-anchor": "middle", class: "muted" }, svg); t.textContent = "No data"; return; }
+  const xv = pts.map(p => p.x), yv = pts.map(p => p.y);
+  let x0 = Math.min(...xv), x1 = Math.max(...xv); const y1 = Math.max(...yv) * 1.08 || 1;
+  if (opts.log) { x0 = Math.log2(x0); x1 = Math.log2(x1); }
+  if (x1 === x0) { x0 -= 1; x1 += 1; }
+  const sx = v => ml + ((opts.log ? Math.log2(v) : v) - x0) / (x1 - x0) * (W - ml - mr), sy = v => H - mb - (v / y1) * (H - mt - mb);
+  for (let i = 0; i <= 4; i++) {
+    const v = y1 * i / 4, y = sy(v);
+    el("line", { x1: ml, x2: W - mr, y1: y, y2: y, stroke: css("--line") }, svg);
+    const t = el("text", { x: ml - 6, y: y + 4, "text-anchor": "end", class: "muted" }, svg); t.textContent = fmtNum(v);
+  }
+  (opts.xticks || []).forEach(v => { const t = el("text", { x: sx(v), y: H - mb + 15, "text-anchor": "middle", class: "muted" }, svg); t.textContent = opts.xfmt ? opts.xfmt(v) : v; });
+  const xl = el("text", { x: (W + ml) / 2, y: H - 4, "text-anchor": "middle", class: "muted" }, svg); xl.textContent = opts.xlabel;
+  for (const p of pts) {
+    const c = el("circle", { cx: sx(p.x), cy: sy(p.y), r: p.r || 4, fill: p.color, "fill-opacity": .8, stroke: css("--panel"), "stroke-width": 1 }, svg);
+    c.onmousemove = ev => tip(describe(p.rec), ev); c.onmouseleave = () => tip(null);
+  }
+}
+
+function renderTri() {
+  const yk = $("triY").value, xk = $("triX").value;
+  const recs = filtered(["B", "depth", "ctx"]).filter(r => r.outcome === "ok" && r[yk] != null);
+  const Bs = uniq(recs.map(r => r.B));
+  const color = b => viridis(Bs.length > 1 ? Bs.indexOf(b) / (Bs.length - 1) : .5);
+  const xOf = r => xk === "depth" ? r.depth : xk === "ctx" ? r.params.ctx : Math.floor(r.params.ctx / r.B);
+  const pts = recs.map(r => ({ x: xOf(r), y: r[yk], color: color(r.B), r: 3 + Math.sqrt(r.B) * 1.6, rec: r }));
+  const xticks = uniq(pts.map(p => p.x));
+  scatter($("tri"), pts, { log: true, xticks: xticks.length > 12 ? xticks.filter((_, i) => i % 2 === 0) : xticks, xfmt: v => v >= 1024 ? Math.round(v / 1024) + "k" : v, xlabel: $("triX").selectedOptions[0].text + " (log scale) · colour/size = B: " + Bs.join(", ") });
+}
+
+function renderHist() {
+  const lk = $("layer").value, L = LAYERS[lk];
+  const recs = DATA.records.filter(r => lk === "outcome" || lk === "runs" || r.outcome !== "ok" || L.get(r) != null);
+  const t0 = recs.length ? Date.parse(recs[0].ts) : 0;
+  const pts = recs.map(r => ({ x: (Date.parse(r.ts) - t0) / 3600e3 + 1, y: r.outcome === "ok" ? (L.get(r) || 0) : 0, rec: r,
+    color: r.outcome === "ok" ? css("--ok") : r.outcome === "oom" ? css("--oom") : css("--err"), r: r.outcome === "ok" ? 4 : 3 }));
+  scatter($("hist"), pts, { log: false, xticks: [], xlabel: "time (hours since the first run) · " + L.label });
+}
+
+function renderAll() { renderFilters(); renderHeat(); renderTri(); renderHist(); if (selected) renderSelection(); }
+
+async function loadHistory(mid) {
+  DATA = await (await fetch("/api/history" + (mid ? "?machine=" + encodeURIComponent(mid) : ""))).json();
+  DATA.records.sort((a, b) => a.ts.localeCompare(b.ts));
+  const m = DATA.machine;
+  $("machineMeta").textContent = `${m.cpu} · ${m.gpu ? m.gpu.name + " " + m.gpu.vramMiB + " MiB" : "no GPU"} · ${m.ramGiB} GiB RAM · ${DATA.records.length} records`;
+  const sel = $("machineSel");
+  if (!sel.options.length) { sel.innerHTML = DATA.machines.map(x => `<option>${x}</option>`).join(""); sel.value = m.id; sel.onchange = () => loadHistory(sel.value); }
+  renderAll();
+}
+async function loadConfig() {
+  const c = await (await fetch("/api/config")).json();
+  const cf = c.config;
+  $("cfgInfo").innerHTML = `<b>${c.running ? "engine running" : "engine stopped"}</b> at ${c.url}${c.engine ? ` · ${c.engine.slots} slots, ${c.engine.nCtxPerSlot} ctx/slot` : ""}<br>` +
+    `ncmoe ${cf.nCpuMoe} · ctx ${cf.ctx} · slots ${cf.slots} · ub ${cf.ubatch} · t ${cf.threads} · KV ${cf.cacheTypeK}/${cf.cacheTypeV}<br><span class="note">saved in ${c.file}</span>`;
+  $("cfgCmd").textContent = c.command.join(" ");
+}
+let lastDone = 0;
+async function pollJobs() {
+  try {
+    const j = await (await fetch("/api/jobs")).json();
+    $("jobs").textContent = (j.current ? "running: " + j.progress : (j.progress || "idle")) + (j.queue.length ? `\nqueued: ${j.queue.length}` : "") +
+      (j.done.length ? "\n" + j.done.slice(-3).map(d => d.ts + " " + d.result).join("\n") : "");
+    if (j.current || j.done.length !== lastDone) { lastDone = j.done.length; loadHistory($("machineSel").value); }
+  } catch {}
+  setTimeout(pollJobs, 5000);
+}
+$("sweepBtn").onclick = async () => {
+  const list = (id, conv = Number) => $(id).value.split(",").map(s => s.trim()).filter(Boolean).map(conv);
+  const body = { depth: list("swDepth"), B: list("swB"), ntg: Number($("swNtg").value) || 128, note: $("swNote").value };
+  const add = (k, id) => { const v = list(id); if (v.length) body[k] = v; };
+  add("nCpuMoe", "swNcmoe"); add("ctx", "swCtx"); add("ubatch", "swUb"); add("threads", "swT");
+  await fetch("/api/sweep", { method: "POST", body: JSON.stringify(body) });
+  pollJobs();
+};
+addEventListener("resize", () => { renderTri(); renderHist(); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+buildControls();
+loadHistory().then(loadConfig);
+pollJobs();
+</script>
+</body>
+</html>
