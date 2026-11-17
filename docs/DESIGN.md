@@ -123,11 +123,11 @@ CPU-MoE flags); machine profiles beyond the reference laptop; build management (
 
 ## 6. Platform support
 
-Windows and Linux (WSL included) from one checkout: OS differences live in `sub0llmengine/platform.py`, config layers
+Windows and Linux (WSL included) from one checkout: OS differences come from Sub0Platform through `sub0llmengine/platform.py`, config layers
 per platform (`engine.local.<windows|linux|wsl>.json`), Windows drive paths read as `/mnt/x` under WSL, tests on both
 in CI. Supported topologies: engine and clients on Windows; engine on Windows with clients in WSL (mirrored
-networking, verified); engine native on Linux (needs a Linux llama.cpp build; untested here). `platform.py` is the
-Python seed of [Sub0Platform](https://github.com/CraigHutchinson/Sub0Platform), the platform library shared by the Sub0 projects (plan: Sub0Squad `docs/sessions/platform-unification.md`).
+networking, verified); engine native on Linux (needs a Linux llama.cpp build; untested here). The engine depends on
+[Sub0Platform](https://github.com/CraigHutchinson/Sub0Platform) (v0.1.0, seeded from this module), the platform library shared by the Sub0 projects (plan: Sub0Squad `docs/sessions/platform-unification.md`).
 
 ## 7. Open questions
 

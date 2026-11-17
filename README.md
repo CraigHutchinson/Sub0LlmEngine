@@ -7,7 +7,9 @@ Run, measure and tune local LLM inference engines on the machine you have, and c
 It takes the engine boilerplate out of the projects that use a model (first [Sub0Squad](https://github.com/CraigHutchinson/Sub0Squad)):
 one place that knows how to start an engine with the right placement for *this* machine, how fast each configuration
 really is, and where the weights are. Backends: **llama.cpp** today; strata and Sub0Llm are planned behind the same
-interface (`sub0llmengine/backends/`). Python 3.10+, standard library only. Windows and Linux (including WSL).
+interface (`sub0llmengine/backends/`). Python 3.10+, standard library plus [Sub0Platform](https://github.com/CraigHutchinson/Sub0Platform) (the shared
+platform layer: a clone beside this repository is found without installing, or `pip install
+git+https://github.com/CraigHutchinson/Sub0Platform@v0.1.0`). Windows and Linux (including WSL).
 
 * **Measure** every configuration, failures included, into a per-machine history (`bench/<machine>.jsonl`).
 * **Fill the map automatically**: auto-fill infers which settings must run out of memory, bisects to the edge and proves it.
@@ -176,8 +178,8 @@ to the top layer.
 differs, usually `binDir`, in `engine.local.windows.json` or `engine.local.linux.json` (WSL reads `linux` then `wsl`).
 Windows drive paths (`D:/LlmModels`) are read as `/mnt/d/...` under WSL. With WSL's mirrored networking
 (`networkingMode=mirrored`) a client in WSL reaches an engine started on Windows at 127.0.0.1, which is how Sub0Squad
-runs today; serving natively on Linux needs a Linux llama.cpp build. Platform differences live in
-`sub0llmengine/platform.py`; the tests run on both (`python -m unittest discover -s tests`, and `python3 ...` in WSL).
+runs today; serving natively on Linux needs a Linux llama.cpp build. Platform differences come from
+Sub0Platform through `sub0llmengine/platform.py`; the tests run on both (`python -m unittest discover -s tests`, and `python3 ...` in WSL).
 
 | Key | Meaning |
 |---|---|

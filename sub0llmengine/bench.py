@@ -84,31 +84,14 @@ class GpuLock:
     path = os.path.join(config.STATE_DIR, "bench.lock")
 
     def __enter__(self):
-        os.makedirs(config.STATE_DIR, exist_ok=True)
-        while True:
-            try:
-                fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.write(fd, str(os.getpid()).encode())
-                os.close(fd)
-                return self
-            except FileExistsError:
-                try:
-                    with open(self.path) as f:
-                        owner = f.read().strip()
-                    if owner.isdigit() and not platform.alive(int(owner)):
-                        os.replace(self.path, self.path + ".stale-" + owner)
-                        continue
-                    activity.write(phase="waiting-lock", lockOwner=owner,
-                                   message="Waiting for benchmark lock; age alone does not prove its owner has exited.")
-                except OSError:
-                    continue
-                time.sleep(2)
+        self._lock = platform.ExclusiveLock(self.path, onWait=lambda owner: activity.write(
+            phase="waiting-lock", lockOwner=owner,
+            message="Waiting for benchmark lock; age alone does not prove its owner has exited."))
+        self._lock.__enter__()
+        return self
 
     def __exit__(self, *exc):
-        try:
-            os.remove(self.path)
-        except OSError:
-            pass
+        self._lock.__exit__(*exc)
 
 
 def point(cfg, params, depth, ntg, bs, log=None, note="", timeout=None):
