@@ -37,6 +37,15 @@ class StubServer(http.server.BaseHTTPRequestHandler):
         pass
 
 
+def deadPid():
+    """The pid of a process that has exited."""
+    import subprocess
+    import sys
+    p = subprocess.Popen([sys.executable, "-c", "pass"])
+    p.wait()
+    return p.pid
+
+
 def write(path, data):
     with open(path, "w", encoding="utf-8") as f:
         f.write(data if isinstance(data, str) else json.dumps(data))
@@ -194,13 +203,27 @@ class TestEngineDescription(Tmp):
         self.assertIn("not started by this tool", said[0])
 
     def test_start_refuses_while_a_bench_holds_the_gpu(self):
-        write(process.LOCK_FILE, "4242")
+        me = str(os.getpid())  # a live owner
+        write(process.LOCK_FILE, me)
         said = []
         with mock.patch("subprocess.Popen") as popen:
             self.assertEqual(process.start(self.cfg(port=self.freePort()), say=said.append), 2)
             popen.assert_not_called()
-        self.assertIn("4242", said[0])
-        self.assertEqual(process.info(self.cfg(port=self.freePort()))["benchLock"], "4242")
+        self.assertIn(me, said[0])
+        self.assertEqual(process.info(self.cfg(port=self.freePort()))["benchLock"], me)
+
+    def test_lock_of_a_crashed_bench_does_not_block(self):
+        write(process.LOCK_FILE, str(deadPid()))
+        self.assertIsNone(process.benchLockOwner())
+
+    def test_bench_sets_aside_a_crashed_benchs_lock(self):
+        from sub0llmengine import bench
+        dead = deadPid()
+        write(process.LOCK_FILE, str(dead))
+        with mock.patch.object(bench.GpuLock, "path", process.LOCK_FILE), mock.patch.object(bench.activity, "write", lambda **k: None):
+            with bench.GpuLock():
+                self.assertEqual(open(process.LOCK_FILE).read(), str(os.getpid()))
+        self.assertTrue(os.path.exists(process.LOCK_FILE + ".stale-%d" % dead))
 
     def test_pool_watermark_from_slots(self):
         cfg = self.cfg(port=self.serve(), ctx=8192)

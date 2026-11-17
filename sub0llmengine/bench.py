@@ -14,7 +14,7 @@ import subprocess
 import threading
 import time
 
-from . import activity, backends, config, machine, registry
+from . import activity, backends, config, machine, platform, registry
 
 
 def historyPath(mid=None):
@@ -78,7 +78,9 @@ class VramSampler(threading.Thread):
 
 class GpuLock:
     """One bench at a time across processes (the CLI and the page's job runner both bench): out/bench.lock, created exclusively.
-    Never steal a lock on age alone: an extended-context run can legitimately take hours."""
+    Never steal a lock on age alone: an extended-context run can legitimately take hours. A lock whose owner process no
+    longer exists (a crashed bench) is set aside as bench.lock.stale-<pid> and taken; a live owner, or a reused pid, is
+    waited for (the safe side)."""
     path = os.path.join(config.STATE_DIR, "bench.lock")
 
     def __enter__(self):
@@ -93,6 +95,9 @@ class GpuLock:
                 try:
                     with open(self.path) as f:
                         owner = f.read().strip()
+                    if owner.isdigit() and not platform.alive(int(owner)):
+                        os.replace(self.path, self.path + ".stale-" + owner)
+                        continue
                     activity.write(phase="waiting-lock", lockOwner=owner,
                                    message="Waiting for benchmark lock; age alone does not prove its owner has exited.")
                 except OSError:

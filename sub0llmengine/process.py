@@ -89,12 +89,14 @@ def state():
 
 
 def benchLockOwner():
-    """The pid text in the bench's GPU lock when a bench holds it, else None."""
+    """The pid text in the bench's GPU lock when a live bench holds it, else None (a lock left by a crashed bench, whose
+    owner no longer exists, does not count; the next bench sets it aside)."""
     try:
         with open(LOCK_FILE) as f:
-            return f.read().strip() or "unknown"
+            owner = f.read().strip() or "unknown"
     except OSError:
         return None
+    return None if owner.isdigit() and not platform.alive(int(owner)) else owner
 
 
 def model(cfg, ref=None):

@@ -55,9 +55,21 @@ def spawnDetached(cmd, logFile):
 
 def alive(pid):
     """Whether a process with this pid exists."""
-    if IS_WINDOWS:
-        out = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid, "/NH"], capture_output=True, text=True).stdout
-        return str(pid) in out.split()
+    if IS_WINDOWS:  # OpenProcess + GetExitCodeProcess: no subprocess, exact pid
+        import ctypes
+        from ctypes import wintypes
+        k = ctypes.WinDLL("kernel32", use_last_error=True)
+        k.OpenProcess.restype = wintypes.HANDLE
+        k.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        h = k.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return ctypes.get_last_error() == 5  # access denied: it exists; invalid parameter: it does not
+        try:
+            code = wintypes.DWORD()
+            k.GetExitCodeProcess(h, ctypes.byref(code))
+            return code.value == 259  # STILL_ACTIVE
+        finally:
+            k.CloseHandle(h)
     try:
         os.kill(pid, 0)
         return True

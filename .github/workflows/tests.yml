@@ -1,0 +1,27 @@
+# Tests on Windows and Linux, no GPU: selection, auto-fill, axes, process control and the client contract (Python),
+# and the tuning page's selection core (Node). Nothing here starts a model.
+name: tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Python tests
+        run: python -m unittest discover -s tests -v
+      - name: Page selection tests
+        run: node --test tests/tuning-selection.test.cjs
