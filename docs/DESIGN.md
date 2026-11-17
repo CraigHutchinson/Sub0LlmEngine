@@ -121,7 +121,15 @@ queue, with hysteresis and drain/hand-over; never drop a request's KV. Measure a
 **M5: more backends and machines.** strata and Sub0Llm adapters behind the same interface (their own knobs, no fake
 CPU-MoE flags); machine profiles beyond the reference laptop; build management (pinned commit, CUDA arch) on request.
 
-## 6. Open questions
+## 6. Platform support
+
+Windows and Linux (WSL included) from one checkout: OS differences live in `sub0llmengine/platform.py`, config layers
+per platform (`engine.local.<windows|linux|wsl>.json`), Windows drive paths read as `/mnt/x` under WSL, tests on both
+in CI. Supported topologies: engine and clients on Windows; engine on Windows with clients in WSL (mirrored
+networking, verified); engine native on Linux (needs a Linux llama.cpp build; untested here). `platform.py` is the
+Python seed of a shared platform library for the Sub0 projects (Sub0Squad `docs/sessions/platform-unification.md`).
+
+## 7. Open questions
 
 * Gateway or not: a proxy adds a hop (small on localhost) and a component to supervise, but is the only place to see
   and steer requests. Decide after M1's watermark is used by Sub0Squad directly.
