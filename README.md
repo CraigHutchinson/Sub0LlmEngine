@@ -205,6 +205,7 @@ Fetching models belongs to the registry: `python -m sub0llmregistry fetch hf:<or
 
 ## Results, known issues and design notes
 
+* [Model generation and template settings](docs/MODEL_BEHAVIOR.md) for Qwen3.6-35B-A3B.
 * [docs/RESULTS.md](docs/RESULTS.md): Intel Core Ultra 9 275HX, RTX 5070 Laptop (8 GB), 64 GB, Qwen3.6-35B-A3B.
 * [docs/TUNING_MAP.md](docs/TUNING_MAP.md): the selection rules, evidence boundaries and the consumer contract.
 * [docs/DESIGN.md](docs/DESIGN.md): the whole system, its contracts and milestones (M0 done, M1 in progress).
