@@ -40,6 +40,9 @@ foreach(layer ${SUB0ENGINE_LAYERS})
   endif()
   set(lower sub0engine_${layer})
 endforeach()
+# The contracts layer reads and writes JSON with simdjson, privately: no simdjson type reaches a public header.
+target_link_libraries(sub0engine_contracts PRIVATE simdjson::simdjson)
+
 # The net layer: Beast and Asio compile once (src/net/boost_impl.cpp); nothing else includes Boost.
 target_link_libraries(sub0engine_net PRIVATE Boost::beast)
 target_compile_definitions(sub0engine_net PRIVATE BOOST_ASIO_SEPARATE_COMPILATION BOOST_BEAST_SEPARATE_COMPILATION BOOST_ASIO_NO_DEPRECATED)
@@ -65,6 +68,14 @@ endfunction()
 sub0engine_add_test(test_service_version service)
 sub0engine_add_test(test_platform_link platform)
 sub0engine_add_test(test_net_loopback net)
+sub0engine_add_test(test_bench_record contracts)
+target_link_libraries(test_bench_record PRIVATE simdjson::simdjson)
+target_compile_definitions(test_bench_record PRIVATE SUB0ENGINE_REPO_DIR="${CMAKE_SOURCE_DIR}")
+# The Python reference writes the fixtures the C++ tests read; this fails when the committed ones are stale.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_FOUND)
+  add_test(NAME fixtures_fresh COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/write_fixtures.py --check)
+endif()
 
 # Labels (cmake/TestTiers.cmake): every test gets one tier and one area, and the configure fails otherwise.
 include(cmake/TestTiers.cmake)
@@ -72,4 +83,6 @@ sub0engine_label_tests(AREA structure TIER smoke TARGETS layering test_reporting
 sub0engine_label_tests(AREA service   TIER smoke TARGETS test_service_version)
 sub0engine_label_tests(AREA platform  TIER smoke TARGETS test_platform_link)
 sub0engine_label_tests(AREA net       TIER smoke TARGETS test_net_loopback)
+sub0engine_label_tests(AREA contracts TIER smoke TARGETS test_bench_record)
+sub0engine_label_tests(AREA reference TIER smoke TARGETS fixtures_fresh)
 sub0engine_check_labels()

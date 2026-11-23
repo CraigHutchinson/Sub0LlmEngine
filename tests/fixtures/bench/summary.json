@@ -1,0 +1,31 @@
+{
+  "source": "bench/ultra-9-275hx_rtx-5070-laptop-gpu-8g_63g.jsonl",
+  "rows": 1068,
+  "outcomes": {
+    "error": 7,
+    "ok": 747,
+    "oom": 314
+  },
+  "withExcluded": 217,
+  "withoutBackend": 2,
+  "nullPeakVram": 8,
+  "nullWallSec": 58,
+  "maxDepth": 65536,
+  "maxConcurrency": 32,
+  "sumTgTps": 59726.41,
+  "sumPpTps": 688813.92,
+  "distinctBuilds": 2,
+  "paramNames": [
+    "batch",
+    "cacheTypeK",
+    "cacheTypeV",
+    "ctx",
+    "flashAttn",
+    "gpuLayers",
+    "kvUnified",
+    "mmap",
+    "nCpuMoe",
+    "threads",
+    "ubatch"
+  ]
+}
