@@ -9,7 +9,7 @@ and stopping a running server.
 
 | Project | One responsibility | Does not |
 |---|---|---|
-| **Sub0LlmEngine** (this) | Run, measure, tune and supervise inference backends on this machine; the backend abstraction; backend install/update checks | Store weights, schedule jobs, implement inference |
+| **Sub0LlmEngine** (this) | The service that owns the GPU: run, measure, tune and supervise inference backends, grant clients a configuration against their levers and adapt it to demand; the backend abstraction; backend install/update checks | Store weights, schedule jobs, implement inference |
 | **Sub0LlmModelRegistry** | The model store: versioned folders, manifests, hashes, facts read from files, providers that fetch, eviction | Launch or update any backend; choose a model for a job |
 | **Sub0Platform** | OS layer: paths, WSL, processes, atomic files, locks | Know anything about models or backends |
 | **Sub0Squad** | Delegated work: jobs, workers, a collaborative scheduler; a client of the engine | Pick engine flags, start servers, hold models |

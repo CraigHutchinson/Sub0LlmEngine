@@ -57,3 +57,17 @@ prefill is the CPU-resident experts. How each was started: llama.cpp `llama-serv
 --family inkling-2-mini --model sq-15 --data-dir <hard-linked registry files>`; Basalt `basalt serve --model <pack>
 --max-context 8192`. The adapters need a native profile/config file, so these runs did not go through
 `python -m sub0llmengine start`; building that path (and the config each backend needs) is the next adapter step.
+
+#### Same GGUF file on llama.cpp and Strata (Inkling 2 Mini UD-Q3_K_XL, 2026-11-23)
+
+Strata runs a GGUF it did not download (`strata launch --model-path file.gguf`), so llama.cpp and Strata can be compared on
+the identical file (8k context, one slot, same prompts). Basalt cannot read GGUF, so it stays a separate row above.
+
+| Engine | Decode (tok/s) | Prefill 6.4k (tok/s) | VRAM |
+|---|---|---|---|
+| llama.cpp b12665, `-ncmoe 17 --no-op-offload` | 19.4 | 70 | 5.4 GB |
+| Strata 0.2.20 | 11.4 | 336 | 6.8 GB |
+
+Same weights, so the earlier gap between Strata's own SQ-15 file and llama.cpp was partly the quantization: Strata
+prefill is 4.8 times llama.cpp's here, and llama.cpp decodes 1.7 times faster. (llama.cpp ran with thinking on, Strata
+answered directly; decode rates are per generated token.)

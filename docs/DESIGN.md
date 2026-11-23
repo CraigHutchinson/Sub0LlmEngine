@@ -17,6 +17,20 @@ measured; the engine never silently serves something other than what was asked; 
 results always name their exact weights, build and settings; changes that cost the owner (downloads, installs,
 services, frontier models) are asked first.
 
+## 1a. Product shape (owner, 2026-11-23)
+
+The engine is a **built service that runs on this machine**, not a Python script. It owns the GPU and the backend
+processes. Clients (Sub0Squad, tools, a person) ask it for an inference configuration through the levers (concurrency,
+context per request, decode and prefill floors, images, model and format) and get an endpoint, or a refusal with the
+nearest measured alternatives. The service also adapts the configuration itself as the active users and their requests
+change (the M4 workload-adaptive work: hysteresis, drain or hand over before a switch, never drop a request's KV).
+
+The Python package is the prototype and the reference: its contracts (`engine.v1`, `axes.v1`, `measured-selection.v1`,
+bench records, the registry `request`) and its tests are the specification the service must pass. The tuning page stays
+a view over the service. The service's language is open; C++23 matches Sub0Squad, Sub0Platform's C++ layer and the rest
+of the family, and lets Squad link a client library instead of shelling out. Until the owner decides, new engine logic
+keeps its decisions in data and contracts, not in script glue.
+
 ## 2. Components
 
 ```

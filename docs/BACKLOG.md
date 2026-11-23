@@ -3,6 +3,15 @@
 Work for Sub0LlmEngine. The target system and the milestones are in [DESIGN.md](DESIGN.md); each item below names its
 milestone. Done items are kept short here and leave in the next tidy-up (git keeps them).
 
+## Service shape (owner, 2026-11-23; see DESIGN 1a)
+
+Turn the engine from a CLI into a service: a daemon with a local API (lever requests, status, pool watermark, lease and
+release), supervising backends (llama.cpp, Strata, Basalt, later Sub0Llm), arbitrating the GPU between requests, and
+adapting the running configuration to the active users. Steps: decide the language; port the contracts and their tests
+first; define the lever-request and lease model (what Squad asks, what it gets back, what happens when the machine
+cannot meet it); a client library for Squad; service install (owner's go-ahead); the auto-adapt policy on top of the
+M4 spike. The Python tools stay as the reference until the service passes the same tests.
+
 ## By milestone
 
 * **M1 serving basics** (in progress; done: pool watermark in `status --json`, loading instance counts as present,
