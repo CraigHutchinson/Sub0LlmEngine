@@ -71,3 +71,19 @@ the identical file (8k context, one slot, same prompts). Basalt cannot read GGUF
 Same weights, so the earlier gap between Strata's own SQ-15 file and llama.cpp was partly the quantization: Strata
 prefill is 4.8 times llama.cpp's here, and llama.cpp decodes 1.7 times faster. (llama.cpp ran with thinking on, Strata
 answered directly; decode rates are per generated token.)
+
+### Qwen datapoints and what each engine can run here (2026-11-23)
+
+The same Qwen files could not be compared across all three engines on this 8 GB laptop:
+
+| Model (file) | llama.cpp b12665 | Strata 0.2.20 | Basalt 0.5.6 |
+|---|---|---|---|
+| Qwen3.5-9B Q4_K_M (identical GGUF, 5.7 GB) | decode 46 to 55 tok/s, prefill 2,168 tok/s, 5.4 GB VRAM | refused: "this model type is not supported by the Strata engine" | no pack, and `convert.py --gguf` refuses a dense model (no expert tensors) |
+| Qwen3.8-27B Q4_0 (identical GGUF, 15 GB) | decode 5.3, prefill 314 (`-fit on`, 6.1 GB VRAM) | refused (same reason) | no |
+| Qwen3.8-27B QUASAR NVFP4 (official checkpoint) | converted here to GGUF: decode 4.2, prefill 362, 6.0 GB VRAM | refused | published pack: refused to load, "out of device memory for 16384 MiB of weights on CUDA0" |
+
+So the Inkling 2 Mini rows above are the only three-engine datapoint on this machine. For Qwen the registry can hold every
+artifact, and llama.cpp measures all of them; Strata supports other model families, and Basalt's dense Qwen needs about
+16 GB of VRAM. The converted NVFP4 GGUF is the like-for-like llama.cpp counterpart of Basalt's pack: the same QUASAR
+revision `4a22293a`, NVFP4 codes and scales copied, not re-rounded (llama.cpp's converter; the Basalt pack's SHA-256
+matches the one its docs publish).
