@@ -21,27 +21,20 @@ artifacts per format, vendor and variant, each with a provider source or a conve
 The engine never fetches or converts itself. The registry holds the definition, the state, the download, the conversion
 plugins and the `derivedFrom` / `tool` record.
 
-## Gaps, in the order they block the shootout
+## Open
 
-1. **Model identity per backend** (blocks). The state record knows a registry id, but Strata and Basalt load a file
-   named by their own profile/config. Compare the model each server reports on `/v1/models` with the configured
-   `model` and record a mismatch instead of trusting it.
-2. **Basalt packs**: stored and requested (`format: "basalt"`, fetched by the `hf` provider into `hf/jesdga/...`, checksum
-   from the Hub). Open: a header reader giving what the pack states (experts, KV storage, context capacity). Never route a
-   pack through `gguf.facts()`.
-3. **Strata model preparation** (blocks Strata). Strata downloads and prepares models itself (the no-change plan
-   proposed 68.5 GB). Decide whether the registry adopts what it prepares (`adopt`, checked against the provider) or
-   Strata keeps its own store and the registry records only a reference.
-4. **Derived artifacts.** Record `derivedFrom` and `tool` (`name`, `version`, `command`) for anything a backend
-   produces: `llama-quantize` output, `.basalt` packs, Basalt expert profiles (`--expert-profile-save`). These are
-   local, so they are never evicted. The manifest already has both fields; the engine does not fill them.
-5. **Conversion.** The plumbing exists (converter plugins, `from`, `derivedFrom`/`tool` recorded, tested with a fake). No
-   real converter is written: `llama-quantize` and Basalt's `convert.py` need verified commands first.
-6. **Version correlation.** Warn when a manifest's `tool.version` differs from the installed backend
+1. **Model identity per backend.** The state record knows a registry id, but Strata and Basalt load a file named by their
+   own profile or config. Compare the model each server reports on `/v1/models` with the configured `model` and record a
+   mismatch instead of trusting it.
+2. **Basalt pack facts.** Packs are stored, requested and checksummed (`format: "basalt"`); a header reader for what the
+   pack states (experts, KV storage, context capacity) is missing. Never route a pack through `gguf.facts()`.
+3. **Strata's store.** Strata runs a GGUF from any path (`strata launch --model-path`) and finds linked `.strata` files in
+   its data folder (hard links, registry workflow W4), but only for its own model families (it refused every Qwen file).
+   Check support before offering it a model.
+4. **More converters.** The declared-converter plumbing is built and proven on `llamacpp-safetensors-to-gguf`;
+   `basalt-safetensors-to-pack` is defined and unrun, `llama-quantize` is not defined.
+5. **Version correlation.** Warn when a manifest's `tool.version` differs from the installed backend
    (`python -m sub0llmengine.versions` reads the installed one).
-
-Not planned until evidence asks for it: per-model compatibility lists, `backendFacts` blocks, a Strata pack area before
-Strata's store is understood.
 
 ## Eviction
 

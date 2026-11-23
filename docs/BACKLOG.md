@@ -27,10 +27,10 @@ M4 spike. The Python tools stay as the reference until the service passes the sa
 * **M4 workload-adaptive configuration** (*Workload-adaptive engine configuration*): the spike is done; next the
   bounded fixture against fixed configurations.
 * **M5 backends and machines**: detect, acquire/build and install backends compatible with the machine; profile each
-  backend independently; Strata and Basalt serving adapters and their current Windows releases are acquired, but
-  lifecycle verification, native profiling and automated compatibility/install remain; Sub0Llm; model-pack support;
-  iterate on model registry and acquisition tooling (*Engine supervision*, *Strata and Basalt backends*,
-  *Model registry iteration*).
+  backend independently. Done: Strata and Basalt adapters, releases acquired, Inkling 2 Mini run on all three engines
+  (docs/backends/README.md), registry model definitions with per-format artifacts and declared converters. Remaining:
+  lifecycle verification through the service, native profiling, automated compatibility/install, Sub0Llm, model identity
+  checks (*Strata and Basalt backends*, *Model registry iteration*).
 * **Evidence quality** (any time): placement prediction from registry facts, recency for repeats, warm-up prefill in the
   spike, the open model issues (`docs/issues/`).
 
@@ -203,33 +203,34 @@ settings as already migrated or equivalent.
 
 ## Strata and Basalt backends (M5)
 
-The first Strata and Basalt serving adapters now launch their native CLI from an explicit profile/config file and read
-the OpenAI-compatible health/model endpoints. They do not download or prepare models. The shared benchmark interface
-still cannot represent either native profiler. See [backend setup and verification](backends/README.md) for the acquired
-releases and checks. [Strata's install guide](https://www.stratat.com/en/install) documents its Terminal flow and
-managed model preparation; [Basalt's quick start](https://basalt.jgulfo.com/#start) documents `basalt serve --config`,
-`.basalt` model packs, and Blackwell/CUDA-13-specific capabilities.
+Both adapters launch the native CLI and read `/health` and `/v1/models`; neither downloads or prepares models, and the shared
+sweep refuses both (their native profilers stay separate). Run and compared on Inkling 2 Mini: docs/backends/README.md.
+Keep installs, downloads, model preparation and disruptive restarts owner-approved.
 
-Extend lifecycle/status only as verified (including wrapper/child process shutdown), API auth, model identity/format,
-image capability and comparable native profiling. Keep all installs, downloads, model preparation and disruptive
-restarts explicitly owner-approved.
-
-- Strata: validate profile/CLI compatibility and foreground lifecycle, including clean stop and actual model identity,
-  without assuming its API port, credential mode, model or hardware support. Treat managed model packs and vision modes
-  as backend-specific rather than GGUF flags.
-- Basalt: detect supported OS/GPU/CUDA and compatible pack before attempting startup; verify launcher/child shutdown
-  and `.basalt` pack identity without routing the pack through the GGUF registry. Exercise health, OpenAI-compatible
-  text and image requests, and its native benchmark path; keep results distinct unless workloads are demonstrably
-  equivalent.
-- Keep evidence partitioned by backend, model/pack, build, hardware and settings. Do not compare raw scores across
-  engines unless the workload and metric are demonstrably equivalent. Sub0Llm remains a separate planned adapter.
+- Strata: verify foreground lifecycle (clean stop, child included) and the model it reports; it supports only its own model
+  families (it refused every Qwen3.5/3.8 file), so check support before offering a model.
+- Basalt: detect supported OS, GPU and CUDA and a pack that fits before starting (the Qwen3.8-27B pack needs 16 GB of VRAM
+  and refused to load here); verify launcher/child shutdown; exercise image requests and its native benchmark path.
+- Evidence stays partitioned by backend, artifact, build, hardware and settings; raw scores are compared across engines
+  only on a matched workload. Sub0Llm remains a separate planned adapter.
 
 ## Model registry iteration (M5)
 
-Iterate on Sub0LlmModelRegistry and its tooling so the engine can discover model artifacts and packs compatible with
-each installed backend, report storage/hardware requirements, and manage an owner-approved download with clear
-progress, integrity and completion status. Do not treat non-GGUF backend packs as GGUF files or send them through an
-incompatible loader.
+Done (Sub0LlmModelRegistry): model definitions with artifacts per format, vendor and variant; `request` by format with fetch
+only on the owner's go-ahead; declared converters with the derivation recorded; Basalt and Strata formats; the engine asks
+for a model by name in the backend's format (docs/backends/registry-integration.md). Open items are listed there.
 
-- Inkling 2 Mini (Thinking Machines, 2026-11-20; 26.4B MoE, 3.4B active, looped middle layers, Apache 2.0, image input) is the common test model: all three engines support it from the same official checkpoint, each in its own artifact. llama.cpp: mainline GGUF (#32694, loop-slot fix #32704; needs a build at or after b12600, the served b12576 is too old) from `unsloth/Inkling-2-Mini-GGUF` `Mainline_Support/` (UD-Q3_K_XL 12.7 GB, UD-Q4_K_M 15.5 GB). Strata: native `.strata` from `strata-engine/Inkling-2-Mini-Strata` (SQ-15 13.4 GB, SQ-20 18.0 GB, plus a 0.6 GB vision file) or the same Unsloth GGUF. Basalt 0.5.6: `Inkling-2-Mini-NVFP4-DQ8.basalt` (19.7 GB). The artifacts are different quantizations, so compare on matched workload and record each artifact; the registry must hold all three (*gaps* in [registry integration](backends/registry-integration.md)).
-- Shootout order (2026-11-23): llama.cpp on Qwen3.6-35B-A3B (GGUF, in the registry) first; Strata and Basalt need owner-approved model acquisition (Strata's plan is 68.5 GB; Basalt needs a pack) and the running llama.cpp server (it holds port 8092 and the GPU) stopped. Fixed-prompt, temperature 0, record each engine's native numbers separately.
+## Parked decisions (resolve at a follow-up; the engine works without them)
+
+- **HTTP/2** (new requirement, add where viable): Beast is HTTP/1.1 only. Cheapest path: nghttp2 behind the `net` seam, h2c
+  prior knowledge for service clients on loopback; browsers need TLS, which Sub0Platform `net` also lacks.
+- **Beast or Sub0Platform `net`** for the local default (Sub0Canvas review D7, Squad's portal); the seams keep both open.
+- Whether sub0perf moves to its own repository; when to offer the label spec to CraigHutchinson/.github.
+- Compact agent-facing notation: measure TOON against JSON before adopting (docs/SERVICE.md).
+- GPU canary: its fixed model and parameters. MSVC in the full CI tier (default: include it).
+
+## Sub0Platform gaps (flag to that project as incomplete migration; Sub0Canvas' platform code is moving there)
+
+None found yet. When a Sub0Platform module lacks something this engine needs (or Sub0Canvas still carries OS code the engine
+would want), record it here with the file and what is missing, and raise it in Sub0Platform's backlog rather than working
+around it.
