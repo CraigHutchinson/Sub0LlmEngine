@@ -75,5 +75,7 @@ Rules that keep the boundaries:
 | `machine.py`, `platform.py` | Machine identity; Sub0Platform shim |
 | `tuneserver.py` | The tuning page's JSON API |
 
+Service plan (C++23, CPM, layers, port order): [SERVICE.md](SERVICE.md).
+
 Registry side: `store.py` (layout, manifests), `gguf.py` (fact reader), `providers/` (fetch), `cache.py` (disk use and
 eviction). New formats add a fact reader and a provider there, not in the engine.

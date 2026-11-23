@@ -27,9 +27,9 @@ change (the M4 workload-adaptive work: hysteresis, drain or hand over before a s
 
 The Python package is the prototype and the reference: its contracts (`engine.v1`, `axes.v1`, `measured-selection.v1`,
 bench records, the registry `request`) and its tests are the specification the service must pass. The tuning page stays
-a view over the service. The service's language is open; C++23 matches Sub0Squad, Sub0Platform's C++ layer and the rest
-of the family, and lets Squad link a client library instead of shelling out. Until the owner decides, new engine logic
-keeps its decisions in data and contracts, not in script glue.
+a view over the service. The service is **C++23 with CMake and CPM, versioned by Version.cmake, built from the Sub0 series** (decided 2026-11-23);
+the plan and layers are in [SERVICE.md](SERVICE.md). Until the port passes the Python tests, new engine logic keeps its
+decisions in data and contracts (JSON fixtures both sides read), not in script glue.
 
 ## 2. Components
 
