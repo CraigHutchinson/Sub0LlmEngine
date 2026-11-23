@@ -3,7 +3,6 @@
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 
-#include <atomic>
 #include <exception>
 #include <thread>
 
@@ -84,7 +83,6 @@ public:
             handler_ = std::move(handler);
             acceptor_ = std::make_unique<tcp::acceptor>(io_, tcp::endpoint{asio::ip::make_address(std::string{host}), port});
             const auto bound = acceptor_->local_endpoint().port();
-            stopping_ = false;
             thread_ = std::thread{[this] { run(); }};
             return bound;
         }
@@ -101,31 +99,37 @@ public:
         {
             return;
         }
-        stopping_ = true;
-        beast::error_code ignored;
-        acceptor_->close(ignored);  // the blocking accept returns with an error
+        // Closing from another thread does not wake a blocking accept on POSIX, so the front accepts asynchronously: the close is
+        // posted onto the io thread, which then runs out of work and returns.
+        asio::post(io_, [this] {
+            beast::error_code ignored;
+            acceptor_->close(ignored);
+        });
         thread_.join();
         acceptor_.reset();
+        io_.restart();
     }
 
 private:
     void run()
     {
-        while (!stopping_)
-        {
-            beast::error_code ec;
-            tcp::socket socket{io_};
-            acceptor_->accept(socket, ec);
-            if (ec)
+        accept();
+        io_.run();
+    }
+
+    /// One request at a time on the io thread: a handler is short by contract (http.hpp), and a second client waits in the backlog.
+    void accept()
+    {
+        acceptor_->async_accept([this](beast::error_code ec, tcp::socket socket) {
+            if (!ec)
             {
-                if (stopping_)
-                {
-                    return;
-                }
-                continue;
+                serve(socket);
             }
-            serve(socket);
-        }
+            if (acceptor_->is_open())
+            {
+                accept();
+            }
+        });
     }
 
     void serve(tcp::socket& socket) noexcept
@@ -172,7 +176,6 @@ private:
     std::unique_ptr<tcp::acceptor> acceptor_;
     HttpHandler handler_;
     std::thread thread_;
-    std::atomic<bool> stopping_{false};
 };
 
 }  // namespace
