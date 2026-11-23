@@ -4,3 +4,9 @@ engine.local*.json
 out/
 __pycache__/
 *.pyc
+
+# C++ build
+out/build/
+build/
+.cpm-cache/
+test-tmp/

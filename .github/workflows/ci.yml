@@ -1,0 +1,32 @@
+name: CI
+
+# Smoke tier: one Linux job on every push to main and every pull request (CraigHutchinson/.github docs/ci-strategy.md). It builds with
+# warnings as errors and runs `ctest --preset quick`: the tests labelled smoke (cmake/TestTiers.cmake). Tests that need a GPU, a backend or
+# the network are tier local and never run here. The full tier is ci-full.yml (added with the first full-tier test).
+# Performance is not measured in CI: the local sub0perf gate owns it. The Python reference tests run in tests.yml.
+# Off switch: repository variable CI_MODE=off (or [skip ci] in a commit message, or the ci:skip label).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**/*.md', 'docs/**', 'LICENSE*', 'sub0llmengine/**', 'web/**', 'bench/**']
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths-ignore: ['**/*.md', 'docs/**', 'LICENSE*', 'sub0llmengine/**', 'web/**', 'bench/**']
+
+concurrency:
+  group: ci-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    uses: CraigHutchinson/.github/.github/workflows/cpp-smoke.yml@789478c64113b201e518810a3ef6fbf1bf1b1b90
+    with:
+      apt-packages: g++-14 ninja-build ccache
+      cpm-cache-key-files: cmake/dependencies.cmake CMakeLists.txt
+      timeout-minutes: 40
+    permissions: { contents: read, statuses: write, actions: read, pull-requests: read, checks: read }

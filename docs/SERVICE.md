@@ -22,11 +22,12 @@ Python package stays as the reference until the service passes the same tests.
 | Typed events (status, pool level, lease changes) | Sub0Pub |
 | Job graphs, cancellation (admission, drain and switch) | Sub0Pipeline |
 | JSON for contracts and bench history | simdjson (as Squad), a writer to choose |
-| Local HTTP API and client calls to backends | one small HTTP library, to choose in the scaffold step |
+| Local HTTP API and client calls to backends | Boost.Beast (HTTP/1.1 on loopback), only in the `net` layer; HTTP/2 for a later "v2" would add nghttp2 behind the same `net` interfaces |
 
 ## Layers (lowest first)
 
 1. **platform**: Sub0Platform only.
+1b. **net**: the one place that includes Boost (`boost/` only under `src/net`; `simdjson.h` only under `src/contracts`, checked by `cmake/CheckLayers.cmake`).
 2. **contracts**: `engine.v1`, `axes.v1`, `measured-selection.v1`, bench records, lever request and lease, registry
    `request` result. Plain types and JSON in and out; no I/O.
 3. **evidence**: bench history reader/writer and the selector (measured points, filters, ranking), pure and testable.
@@ -53,3 +54,22 @@ Python stays the tool for the tuning page, bench sweeps and spikes until each ha
 
 HTTP and JSON-writer choices; whether the tuning page is served by the service; the lease model's exact levers
 (concurrency, context per request, decode and prefill floors, images, model and format) and what a refusal returns.
+
+## Decisions (2026-11-23, scaffold design by the Opus review; owner confirms the open ones)
+
+* **Notation:** JSON stays the wire contract and the only format the service parses. Agent-facing views may get a write-only
+  TOON subset (`key: value`, indented objects, tabular arrays), produced from the same field tables as the JSON. Adopt only if
+  `tools/notation_bench.py` shows at least 25% fewer tokens than minified JSON on the bench and status corpora with no loss in a
+  field-lookup accuracy probe; otherwise keep JSONL.
+* **Tests:** tiers `smoke | full | local`, `area:<name>`, `needs:<x>` ([TESTING.md](TESTING.md)); CI runs only smoke and full.
+* **Benchmarks:** sub0perf (from Sub0Math, `DOWNLOAD_ONLY`) gates what the engine's code controls (parsing bench history,
+  ranking, contract encode/decode, start-to-ready on a stub server); a GPU canary appends `"suite":"canary"` records to
+  `bench/<machine>.jsonl` and is logged with drift warnings, never gated on throughput; the GPU runs only with `SUB0PERF_GPU=1`.
+* **Boost:** the CMake-enabled release tarball with only Beast, `BOOST_*_SEPARATE_COMPILATION`, SYSTEM includes.
+
+Scaffold status: step 1 is done (CMake, CPM, Version.cmake, presets, layer chain, label rules, one smoke test, CI smoke).
+Next: Sub0Platform and the `net` layer, then contracts with shared fixtures.
+
+Open for the owner: MSVC in CI full next to MinGW; whether sub0perf moves to its own repository; a PR of the label spec to
+CraigHutchinson/.github now or after the engine proves it; Boost 1.89 via the tarball (about 100 MB in the shared cache); the
+network-using token count for the notation benchmark; the GPU canary's fixed model and parameters.

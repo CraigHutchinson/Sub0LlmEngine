@@ -1,0 +1,62 @@
+cmake_minimum_required(VERSION 3.24)
+project(Sub0LlmEngine VERSION 0.0.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(cmake/dependencies.cmake)
+include(cmake/Layers.cmake)
+
+if(MSVC)
+  set(SUB0ENGINE_STRICT /W4 /WX /permissive- /Zc:__cplusplus /utf-8)
+else()
+  set(SUB0ENGINE_STRICT -Wall -Wextra -Werror)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # GCC adds flow-based diagnostics that clang (the strict reference compiler) lacks; keep them visible but not fatal.
+    list(APPEND SUB0ENGINE_STRICT -Wno-error=array-bounds -Wno-error=format-truncation)
+  endif()
+endif()
+
+# One static library per layer (cmake/Layers.cmake), each linking the layer below it, so an upward call is an unresolved symbol exactly as an
+# upward include fails the layering test. A layer with no sources yet is an interface library.
+set(lower "")
+foreach(layer ${SUB0ENGINE_LAYERS})
+  file(GLOB layerSources CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/${layer}/*.cpp)
+  if(layerSources)
+    add_library(sub0engine_${layer} STATIC ${layerSources})
+    target_include_directories(sub0engine_${layer} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_compile_options(sub0engine_${layer} PRIVATE ${SUB0ENGINE_STRICT})
+    if(lower)
+      target_link_libraries(sub0engine_${layer} PUBLIC ${lower})
+    endif()
+  else()
+    add_library(sub0engine_${layer} INTERFACE)
+    target_include_directories(sub0engine_${layer} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    if(lower)
+      target_link_libraries(sub0engine_${layer} INTERFACE ${lower})
+    endif()
+  endif()
+  set(lower sub0engine_${layer})
+endforeach()
+target_link_libraries(sub0engine_service PRIVATE version::version)
+
+enable_testing()
+add_test(NAME layering COMMAND ${CMAKE_COMMAND} -DSRC_DIR=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/cmake/CheckLayers.cmake)
+add_test(NAME test_reporting COMMAND ${CMAKE_COMMAND} -DSRC_DIR=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/cmake/CheckTests.cmake)
+
+function(sub0engine_add_test name layer)
+  add_executable(${name} tests/cpp/${name}.cpp)
+  target_link_libraries(${name} PRIVATE sub0engine_${layer})
+  target_include_directories(${name} PRIVATE tests/cpp)
+  target_compile_options(${name} PRIVATE ${SUB0ENGINE_STRICT})
+  add_test(NAME ${name} COMMAND ${name})
+endfunction()
+sub0engine_add_test(test_service_version service)
+
+# Labels (cmake/TestTiers.cmake): every test gets one tier and one area, and the configure fails otherwise.
+include(cmake/TestTiers.cmake)
+sub0engine_label_tests(AREA structure TIER smoke TARGETS layering test_reporting)
+sub0engine_label_tests(AREA service   TIER smoke TARGETS test_service_version)
+sub0engine_check_labels()
