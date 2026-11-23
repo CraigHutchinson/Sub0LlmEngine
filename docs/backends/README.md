@@ -27,3 +27,4 @@ server is stopped by its owner.
 
 - [Strata](strata.md): signed release acquisition, installation and CLI verification.
 - [Basalt](basalt.md): release acquisition and isolated CLI/dependency checks.
+- [Registry integration](registry-integration.md): how each backend consumes Sub0LlmModelRegistry models, and the gaps.
