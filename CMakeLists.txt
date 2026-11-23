@@ -40,6 +40,8 @@ foreach(layer ${SUB0ENGINE_LAYERS})
   endif()
   set(lower sub0engine_${layer})
 endforeach()
+# The lowest layer is Sub0Platform: every engine layer reaches it through the chain above.
+target_link_libraries(sub0engine_platform INTERFACE Sub0Platform::sub0platform)
 target_link_libraries(sub0engine_service PRIVATE version::version)
 
 enable_testing()
@@ -54,9 +56,11 @@ function(sub0engine_add_test name layer)
   add_test(NAME ${name} COMMAND ${name})
 endfunction()
 sub0engine_add_test(test_service_version service)
+sub0engine_add_test(test_platform_link platform)
 
 # Labels (cmake/TestTiers.cmake): every test gets one tier and one area, and the configure fails otherwise.
 include(cmake/TestTiers.cmake)
 sub0engine_label_tests(AREA structure TIER smoke TARGETS layering test_reporting)
 sub0engine_label_tests(AREA service   TIER smoke TARGETS test_service_version)
+sub0engine_label_tests(AREA platform  TIER smoke TARGETS test_platform_link)
 sub0engine_check_labels()

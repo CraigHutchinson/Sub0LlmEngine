@@ -3,6 +3,14 @@
 include_guard(GLOBAL)
 include(${CMAKE_CURRENT_LIST_DIR}/get_cpm.cmake)
 
+# Sub0Platform: the operating-system layer (processes, files and locks, TCP and local sockets, host facts, waiting on several things at once).
+# Only it and the net layer touch the operating system. Same pin as Sub0Squad (head of its default branch as of 2026-11-19); its tests are off here.
+CPMAddPackage(NAME Sub0Platform
+  GIT_REPOSITORY https://github.com/CraigHutchinson/Sub0Platform.git
+  GIT_TAG 5feccdf226046cc790214bc30793832a1888ce4b
+  SOURCE_SUBDIR cpp
+  OPTIONS "SUB0PLATFORM_BUILD_TESTS OFF" "SUB0PLATFORM_INSTALL OFF")
+
 # simdjson: the one JSON library (as in Sub0Squad and Sub0Llm). It stays private to the contracts layer (cmake/CheckLayers.cmake).
 CPMAddPackage(NAME simdjson
   GIT_REPOSITORY https://github.com/simdjson/simdjson.git
