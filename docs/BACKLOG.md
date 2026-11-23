@@ -221,6 +221,5 @@ each installed backend, report storage/hardware requirements, and manage an owne
 progress, integrity and completion status. Do not treat non-GGUF backend packs as GGUF files or send them through an
 incompatible loader.
 
-- Add Inkling 2 Mini as a planned model-acquisition and profiling case: identify a compatible artifact for the
-  machine/backend, download it through the registry tooling only after approval, verify it, then use it in the
-  per-backend profiling comparison. The model is not downloaded as part of this backlog update.
+- Inkling 2 Mini (Thinking Machines, 2026-11-20; 26.4B MoE, 3.4B active, middle layers looped 3x, Apache 2.0) is published as safetensors, 8-bit ModelOpt, architecture `inkling2_loop`, about 20 GB: no GGUF or `.basalt` pack is known, and llama.cpp/Strata/Basalt support is unverified, so it cannot prove all three engines yet. Re-check for a GGUF and architecture support before downloading anything.
+- Shootout order (2026-11-23): llama.cpp on Qwen3.6-35B-A3B (GGUF, in the registry) first; Strata and Basalt need owner-approved model acquisition (Strata's plan is 68.5 GB; Basalt needs a pack) and the running llama.cpp server (it holds port 8092 and the GPU) stopped. Fixed-prompt, temperature 0, record each engine's native numbers separately.

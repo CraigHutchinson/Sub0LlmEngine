@@ -23,7 +23,7 @@ Create a Basalt server config with Basalt's own tooling, then set the CLI and co
   "basaltVersion": "0.5.6",
   "model": "D:/path/to/the/model-used-by-the-config",
   "host": "127.0.0.1",
-  "port": 8092,
+  "port": 8093,
   "slots": 1
 }
 ```

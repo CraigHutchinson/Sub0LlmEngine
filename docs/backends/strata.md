@@ -12,8 +12,9 @@ The Windows x64 Strata control package and CUDA 13 engine were acquired from the
 
 The engine was installed into the isolated `D:\tools\Sub0LlmEngineBackends\strata\components\` directory using Strata's
 offline installer, which verified the package signature. It registered engine `0.1.66` (`windows-x86_64`, `cuda13`,
-build `2e87c08db18a+cuda13.0`, `signed: true`). The installer's binary-only test-start ran `strata --version` and
-returned `0.1.66`; no model was installed or loaded.
+build `2e87c08db18a+cuda13.0`, `signed: true`). `strata --version` reports the control version and the engine build
+(`strata 0.2.20 (build 0.1.66; ...)`); 0.2.20 is also the latest GitHub release (checked 2026-11-23). No model was
+installed or loaded.
 
 The CLI reported no active Strata launch. A no-change plan was checked and not executed; it proposed a 68.5 GB model
 download. No Strata inference or GPU profiling was run. The separate llama.cpp server was not stopped or modified.
@@ -31,7 +32,7 @@ control CLI:
   "strataVersion": "0.1.66",
   "model": "D:/path/to/the-model-used-by-the-profile",
   "host": "127.0.0.1",
-  "port": 8092,
+  "port": 8093,
   "slots": 2
 }
 ```
