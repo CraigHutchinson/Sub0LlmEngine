@@ -1,0 +1,44 @@
+---
+description: C++ authoring and review standards. Auto-attaches when C++ files are in Agent context. Points the agent to cpp-write (before authoring) and cpp-review (after changes).
+globs: "**/*.cpp,**/*.h,**/*.hpp,**/*.inl,**/*.cc"
+alwaysApply: false
+---
+
+# C++ Standards
+
+## Skill invocation
+
+| Trigger | Skill |
+|---|---|
+| Before writing a new class, public API, or module | **cpp-write** (`~/.cursor/skills/cpp-write/SKILL.md`) |
+| After substantive C++ changes | **cpp-review** (`~/.cursor/skills/cpp-review/SKILL.md`) |
+| Before implementing -- to review a plan or design doc | **cpp-review** (plan review mode) |
+| After L0/L1 MUST findings | **cpp-simplify** (`~/.cursor/skills/cpp-simplify/SKILL.md`) |
+
+Full reference material: `~/.cursor/skills/cpp/references/`
+
+---
+
+## MUST constraints (produce review findings if violated)
+
+**Types** -- prefer project-established types over `std::*` equivalents. Check the reinvention catalogue (`~/.cursor/skills/cpp/references/cpp-idioms.md > Reinvention catalogue`) for project-specific type preferences before using standard-library alternatives.
+
+**Memory** -- follow the project's allocation conventions. Prefer `std::unique_ptr` / `std::make_unique` for owned heap objects; avoid raw `new`/`delete` outside RAII wrappers.
+
+**Global state:**
+- Never use file-statics, function-local statics, or namespace-scope mutable variables for cached or process-lifetime state -- they are testability-hostile (latched once per process, no reset hook)
+- Prefer an instantiable provider class with a scoped-active binding (see `~/.cursor/skills/cpp/references/cpp-modernisation.md > Globals, singletons, and testability seam`)
+
+**Reinvention check** -- before writing any utility, grep the project's utility directories for an existing equivalent. Duplicating a project utility is a MUST finding in review.
+
+---
+
+## SHOULD constraints
+
+- `[[nodiscard]]` on predicates, `Try*` functions, observers, and `Compute*` / `Resolve*`
+- `noexcept` on pure observers and default/move constructors
+- Named predicates over enum comparison at call sites
+- No boolean behaviour selectors -- two named functions or `enum class` parameter
+- `#pragma once` in all new headers; filename must match class name exactly including casing
+- Raw pointer members require an ownership annotation: `// owning`, `// non-owning`
+- Comments explain WHY; no phase/roadmap narrative (`// [TICKET-NNN]` references for tracked deferrals)
