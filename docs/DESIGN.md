@@ -4,6 +4,8 @@
 ([BACKLOG.md](BACKLOG.md)) holds the work items; this document says where each one fits. Evidence and selection rules are in
 [TUNING_MAP.md](TUNING_MAP.md); measured results in [RESULTS.md](RESULTS.md).
 
+Who owns what across the Sub0 projects (RASCI): [RESPONSIBILITIES.md](RESPONSIBILITIES.md).
+
 ## 1. Purpose
 
 Run local inference engines on the machine you have, at the configuration the evidence supports, for clients that
