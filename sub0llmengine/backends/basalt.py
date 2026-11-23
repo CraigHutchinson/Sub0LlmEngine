@@ -5,6 +5,9 @@ from . import Backend, cliCommand, fileFingerprint, requiredFile
 class Basalt(Backend):
     name = "basalt"
 
+    def modelFormats(self):
+        return ["basalt"]
+
     def selectionParams(self):
         return ("basaltConfig",)
 

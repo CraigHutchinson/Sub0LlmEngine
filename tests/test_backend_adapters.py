@@ -61,3 +61,35 @@ class BackendAdapterTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModelRequestTest(unittest.TestCase):
+    def test_backends_declare_their_formats(self):
+        self.assertEqual(backends.get({}).modelFormats(), ["gguf"])
+        self.assertEqual(backends.get({"backend": "strata"}).modelFormats(), ["strata", "gguf"])
+        self.assertEqual(backends.get({"backend": "basalt"}).modelFormats(), ["basalt"])
+
+    def test_model_name_resolves_in_the_backend_format(self):
+        import json
+        from sub0llmengine import registry
+        pkg = registry.package()
+        if pkg is None:
+            self.skipTest("Sub0LlmModelRegistry package not available")
+        root = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(root, "models"))
+            with open(os.path.join(root, "models", "toy.json"), "w") as f:
+                json.dump({"name": "toy", "artifacts": [{"format": "basalt", "variant": "P", "source": "hf:o/toy-B#toy.basalt"}]}, f)
+            folder = os.path.join(root, "hf", "o", "toy-B", "abc123def456")
+            os.makedirs(folder)
+            with open(os.path.join(folder, "toy.basalt"), "wb") as f:
+                f.write(b"x")
+            pkg.Registry(root).newManifest(folder, fmt="basalt", source={"provider": "hf", "repo": "o/toy-B"})
+            path, _ = registry.resolve({"registry": root, "backend": "basalt"}, "toy")
+            self.assertTrue(path.endswith("toy.basalt"))
+            with self.assertRaises(SystemExit) as e:  # llama.cpp cannot load a pack: refused, not substituted
+                registry.resolve({"registry": root}, "toy")
+            self.assertIn("gguf", str(e.exception))
+        finally:
+            import shutil
+            shutil.rmtree(root)

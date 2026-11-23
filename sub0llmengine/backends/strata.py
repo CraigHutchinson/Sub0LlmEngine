@@ -5,6 +5,9 @@ from . import Backend, cliCommand, fileFingerprint, requiredFile
 class Strata(Backend):
     name = "strata"
 
+    def modelFormats(self):
+        return ["strata", "gguf"]
+
     def selectionParams(self):
         return ("strataProfile",)
 

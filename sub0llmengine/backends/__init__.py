@@ -20,6 +20,10 @@ class Backend:
         """The backend's knobs, simplified (see sub0llmengine/axes.py for the fields)."""
         raise NotImplementedError
 
+    def modelFormats(self):
+        """Registry artifact formats this backend can load, preferred first."""
+        return ["gguf"]
+
     def contextTransfer(self):
         """How a sequence's KV can move from one running configuration to another, or None."""
         return None

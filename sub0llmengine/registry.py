@@ -1,15 +1,19 @@
-"""Model lookup: an alias, registry id or plain file path -> (absolute file path, registry id or None).
+"""Model lookup: a model name, alias, registry id or plain file path -> (absolute file path, registry id or None).
+
+A model name (a definition in the registry's models/) is resolved in the formats the configured backend loads
+(`modelFormats()`; override with `modelFormat`, narrow with `modelVariant` / `modelVendor`).
 
 Models live in a Sub0LlmModelRegistry folder (https://github.com/CraigHutchinson/Sub0LlmModelRegistry). When its Python
 package is importable (installed, or a sibling checkout ../Sub0LlmModelRegistry) it resolves ids and supplies the GGUF
 facts; otherwise the folder's generated registry.json is read directly, so the package is optional. A plain file path in
 the "model" key is used as-is, so the registry itself is optional.
 """
+import importlib
 import os
 import re
 import sys
 
-from . import config, platform
+from . import backends, config, platform
 
 _SIBLING = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "Sub0LlmModelRegistry")
 
@@ -42,9 +46,14 @@ def resolve(cfg, ref=None):
     r = root(cfg)
     pkg = package()
     if pkg and r:
+        reg = pkg.Registry(r)
         try:
-            return pkg.Registry(r).resolve(ref)
-        except (KeyError, ValueError) as e:
+            if hasattr(reg, "request") and ref in importlib.import_module(pkg.__name__ + ".catalog").models(reg):
+                # A model name: ask for the formats this backend loads. Never fetches; the error names the command that does.
+                formats = cfg.get("modelFormat") or backends.get(cfg).modelFormats()
+                return reg.request(ref, formats, variant=cfg.get("modelVariant"), vendor=cfg.get("modelVendor"))
+            return reg.resolve(ref)
+        except (KeyError, ValueError, LookupError) as e:
             raise SystemExit("model '%s': %s" % (ref, e))
     reg = config.loadJson(os.path.join(r, "registry.json")) if r else None
     if not reg:
