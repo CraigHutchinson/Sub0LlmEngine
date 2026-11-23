@@ -31,21 +31,21 @@ services, frontier models) are asked first.
                     v                         v                v              v
    +--------------------------------+   +-----------+   +-------------+  +-----------------+
    | Instances: one server process  |   | Selector  |   | Evidence    |  | Registry client |
-   | per name (llama-server today), |   | measured  |   | bench, auto |  | (Sub0LlmModel-  |
-   | supervised (M2)                |   | points -> |   | fill, spike,|  |  Registry)      |
+   | per name (llama.cpp, Strata,   |   | measured  |   | bench, auto |  | (Sub0LlmModel-  |
+   | Basalt adapters), supervised  |   | points -> |   | fill, spike,|  |  Registry)      |
    +--------------------------------+   | a config  |   | history     |  +-----------------+
                     |                   +-----------+   +-------------+
                     v                         ^                |
    +--------------------------------+         +----------------+
    | Backend adapters               |   Resource arbiter: one GPU job at a time (bench lock today;
-   | llamacpp today; strata, Sub0Llm|   instances and benches both take it in M2), plus the owner's
-   | later: knobs, commands, axes   |   allowances (VRAM, RAM, threads kept free)
+   | llamacpp, strata, Basalt;      |   instances and benches both take it in M2), plus the owner's
+   | Sub0Llm later: knobs, commands|   allowances (VRAM, RAM, threads kept free)
    +--------------------------------+
 ```
 
-* **Backend adapters** (`sub0llmengine/backends/`): turn a configuration into a server and a bench command, describe
-  their knobs (`axes.v1`), parse bench output, classify failures, label builds, adapt flags to the build. They never
-  decide what to run.
+* **Backend adapters** (`sub0llmengine/backends/`): turn a configuration into a server command, describe their knobs
+  (`axes.v1`), and provide backend-specific profiling where supported. The shared sweep currently parses llama.cpp
+  output only; Strata and Basalt are explicitly rejected by that sweep. Adapters never decide what to run.
 * **Instances** (`process.py`): one supervised server process per instance name, with its record (`engine.v1`).
   Today there is one unnamed instance.
 * **Evidence** (`bench.py`, `exploration.py`, `spike.py`): measured points per machine (`bench/<machine>.jsonl`),
@@ -105,6 +105,10 @@ reads is tested without a GPU (`tests/`).
   selector's filters and ranking in Python, shared with the page's tests as fixtures).
 * Move the default build to upstream after re-measuring the serving points on it (owner's go-ahead).
 * Pool-exhaustion spike: four growing requests; record the signals and recovery cost.
+* Migrate the current 131,072-token llama.cpp serving profile and image/projector setup from `D:\tools\llamacpp`;
+  verify the measured prompt depths, actual server context and client input/output budget before adopting it here.
+* Add and test llama.cpp image requests through the configured projector/native multimodal path; keep vision optional
+  and report it only when the model, runtime and required assets support it.
 
 **M2: supervision and arbitration.** Named instances (`--instance NAME`, own port, pid and record), restart on
 crash with back-off, log rotation, one lock shared by instances and benches, the owner's allowances (VRAM/RAM/threads
@@ -118,8 +122,19 @@ records that reconcile with the engine's counters (Sub0Squad's accounting gap), 
 prefill-tuned start for long prompts, then the serving configuration with the context restored; switches driven by the
 queue, with hysteresis and drain/hand-over; never drop a request's KV. Measure against fixed configurations first.
 
-**M5: more backends and machines.** strata and Sub0Llm adapters behind the same interface (their own knobs, no fake
-CPU-MoE flags); machine profiles beyond the reference laptop; build management (pinned commit, CUDA arch) on request.
+**M5: more backends and machines.** Initial Strata and Basalt serving adapters and Windows runtime acquisitions are in
+place; Sub0Llm adapters, machine profiles beyond the reference laptop, automated compatibility/acquisition/build/install,
+and native per-backend profiling remain. Verify process ownership/lifecycle, readiness and health, API credentials,
+model/pack identity, capability discovery (including vision), and backend-specific measurements. Keep each backend's
+knobs truthful (no fake CPU-MoE flags), and do not compare measurements across engines unless their workloads and
+metrics are equivalent.
+
+Strata and Basalt use explicit native profile/config files. Strata exposes a foreground `strata serve` path; Basalt
+documents `basalt serve --config` and `.basalt` packs for Blackwell/CUDA 13. Current adapters do not download or prepare
+models, and Basalt wrapper/child shutdown remains to be verified before relying on managed stop. Keep compatibility
+checks and owner approval for installs, downloads, model preparation and disruptive restarts. Add image-request support
+to llama.cpp through its projector/native multimodal configuration in M1. M5 exposes vision capability through the
+backend contract only when the chosen model, runtime and required assets are available.
 
 ## 6. Platform support
 

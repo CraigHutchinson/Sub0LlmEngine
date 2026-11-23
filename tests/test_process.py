@@ -24,8 +24,9 @@ class StubServer(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"error": {"message": "Loading model", "code": 503}}')
             return
-        body = {"/health": {"status": "ok"},
+        body = {"/health": {"status": "ok", "max_context": 8192},
                 "/props": {"model_alias": "stub", "default_generation_settings": {"n_ctx": 8192}},
+                "/v1/models": {"data": [{"id": "openai-stub"}]},
                 "/slots": [{"id": 0, "n_ctx": 8192, "is_processing": True, "n_prompt_tokens": 3000},
                            {"id": 1, "n_ctx": 8192, "is_processing": False, "n_prompt_tokens": 1000}]}.get(self.path)
         self.send_response(200 if body is not None else 404)
@@ -182,6 +183,34 @@ class TestEngineDescription(Tmp):
         self.assertEqual((d["alias"], d["slots"], d["busy"], d["nCtxPerSlot"], d["squadCtx"]), ("stub", 2, 1, 8192, 8192))
         self.assertIsNone(d["matchesConfig"])
         self.assertFalse(d["startedByThisTool"])
+
+    def test_non_llama_backend_uses_openai_model_discovery_without_llama_telemetry(self):
+        cfg = self.cfg(backend="basalt", alias=None, port=self.serve())
+        d = process.describe(cfg)
+        self.assertEqual((d["alias"], d["slots"], d["slotList"]), ("openai-stub", 2, []))
+        self.assertIsNone(d["busy"])
+        self.assertEqual(d["nCtxPerSlot"], 8192)
+
+    def test_backend_is_part_of_running_engine_identity(self):
+        profile = os.path.join(self.dir, "basalt.json")
+        write(profile, "{}")
+        diff = process.differences(self.cfg(backend="basalt", basaltConfig=profile), self.cfg(backend="llamacpp"))
+        self.assertEqual(set(diff), {"backend", "basaltConfig", "backendConfigFingerprint"})
+        self.assertEqual(diff["backend"], ["llamacpp", "basalt"])
+        self.assertEqual(diff["basaltConfig"], [None, profile])
+        self.assertIsNone(diff["backendConfigFingerprint"][0])
+        self.assertIsNotNone(diff["backendConfigFingerprint"][1])
+
+    def test_native_config_edit_after_start_is_detected(self):
+        profile = os.path.join(self.dir, "basalt.json")
+        write(profile, "{}")
+        cfg = self.cfg(backend="basalt", basaltConfig=profile, port=self.serve())
+        process.record(cfg, ["basalt", "serve"], 123)
+        write(profile, {"context": 8192})
+        d = process.info(cfg)
+        self.assertFalse(d["matchesConfig"])
+        self.assertNotEqual(d["differences"]["backendConfigFingerprint"][0],
+                            d["differences"]["backendConfigFingerprint"][1])
 
     def test_recorded_engine_matches_then_differs(self):
         cfg = self.cfg(port=self.serve(), squadCtx=4096)

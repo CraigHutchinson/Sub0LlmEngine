@@ -103,14 +103,24 @@ def model(cfg, ref=None):
 
 def identity(cfg):
     """The settings that define what is served: the knobs of a measured point plus the serving keys."""
-    keys = list(backends.get(cfg).selectionParams()) + SERVING_KEYS
-    return {k: cfg.get(k) for k in keys}
+    be = backends.get(cfg)
+    keys = list(be.selectionParams()) + SERVING_KEYS
+    identity = {"backend": cfg.get("backend", "llamacpp"), **{k: cfg.get(k) for k in keys}}
+    fingerprint = be.selectionFingerprint(cfg)
+    if fingerprint is not None:
+        identity["backendConfigFingerprint"] = fingerprint
+    return identity
 
 
-def differences(cfg, recorded):
+def differences(cfg, recorded, recordedIdentity=None):
     """Keys whose configured value differs from the recorded engine's: {key: [recorded, configured]}."""
-    a, b = identity(recorded), identity(cfg)
-    return {k: [a[k], b[k]] for k in b if a.get(k) != b[k]}
+    a, b = recordedIdentity or identity(recorded), identity(cfg)
+    if a.get("backend") != b.get("backend"):
+        keys = dict.fromkeys(["backend"] + SERVING_KEYS + list(backends.get(cfg).selectionParams()) +
+                             ["backendConfigFingerprint"])
+    else:
+        keys = dict.fromkeys(list(a) + list(b))
+    return {k: [a.get(k), b.get(k)] for k in keys if a.get(k) != b.get(k)}
 
 
 def record(cfg, cmd, p):
@@ -118,7 +128,8 @@ def record(cfg, cmd, p):
     m.pop("facts")
     st = {"format": FORMAT, "pid": p, "url": url(cfg) + "/v1", "startedAt": datetime.datetime.now().isoformat(timespec="seconds"),
           "backend": cfg.get("backend", "llamacpp"), "build": backends.get(cfg).buildLabel(cfg), "model": m,
-          "config": cfg, "configLayers": [x for x in config.layers() if os.path.exists(x)], "command": cmd, "log": LOG_FILE}
+          "config": cfg, "identity": identity(cfg), "configLayers": [x for x in config.layers() if os.path.exists(x)],
+          "command": cmd, "log": LOG_FILE}
     with open(STATE_FILE, "w", encoding="utf-8", newline="\n") as f:
         json.dump(st, f, indent=2)
         f.write("\n")
@@ -137,7 +148,7 @@ def start(cfg, wait=True, say=print):
     """0: answering (already, or started and ready); 1: failed to start; 2: refused (a bench holds the GPU)."""
     if running(cfg):
         st = state()
-        diff = differences(cfg, st["config"]) if st else None
+        diff = differences(cfg, st["config"], st.get("identity")) if st else None
         if diff:
             say("engine: already answering at %s, started with other settings: %s (stop it first to apply them)" % (url(cfg), json.dumps(diff)))
         elif st is None:
@@ -223,12 +234,32 @@ def describe(cfg):
     u = url(cfg)
     if not running(cfg):
         return None
-    props = json.loads(fetch(u + "/props") or "{}")
-    slots = json.loads(fetch(u + "/slots") or "[]")
-    slots = slots if isinstance(slots, list) else []
-    nctx = props.get("default_generation_settings", {}).get("n_ctx")
-    return {"url": u + "/v1", "alias": props.get("model_alias") or cfg.get("alias"), "slots": len(slots) or cfg.get("slots"),
-            "busy": sum(1 for s in slots if s.get("is_processing")), "nCtxPerSlot": nctx, "pid": pid(), "slotList": slots}
+    if cfg.get("backend", "llamacpp") == "llamacpp":
+        props = json.loads(fetch(u + "/props") or "{}")
+        slots = json.loads(fetch(u + "/slots") or "[]")
+        slots = slots if isinstance(slots, list) else []
+        nctx = props.get("default_generation_settings", {}).get("n_ctx")
+        return {"url": u + "/v1", "alias": props.get("model_alias") or cfg.get("alias"), "slots": len(slots) or cfg.get("slots"),
+                "busy": sum(1 for s in slots if s.get("is_processing")), "nCtxPerSlot": nctx, "pid": pid(), "slotList": slots}
+    try:
+        health_data = json.loads(fetch(u + "/health") or "{}")
+    except ValueError:
+        health_data = {}
+    if not isinstance(health_data, dict):
+        health_data = {}
+    try:
+        models = json.loads(fetch(u + "/v1/models") or "{}")
+    except ValueError:
+        models = {}
+    data = models.get("data", []) if isinstance(models, dict) else []
+    data = data if isinstance(data, list) else []
+    model = data[0] if data and isinstance(data[0], dict) else {}
+    model_alias = model.get("id")
+    context_sources = (health_data, model)
+    nctx = next((source[k] for source in context_sources for k in ("max_context", "context_length", "max_model_len", "context")
+                 if isinstance(source.get(k), int) and not isinstance(source.get(k), bool)), None)
+    return {"url": u + "/v1", "alias": cfg.get("alias") or model_alias or health_data.get("model") or "unknown",
+            "slots": cfg.get("slots") or 1, "busy": None, "nCtxPerSlot": nctx, "pid": pid(), "slotList": []}
 
 
 def pool(cfg, slots):
@@ -269,9 +300,9 @@ def info(cfg):
     else:
         out["loading"] = starting(cfg)
     if st and d:
+        diff = differences(cfg, st["config"], st.get("identity"))
         out.update({"startedByThisTool": True, "startedAt": st.get("startedAt"), "build": st.get("build"), "model": st.get("model"),
-                    "config": st.get("config"), "command": st.get("command"), "matchesConfig": not differences(cfg, st["config"]),
-                    "differences": differences(cfg, st["config"])})
+                    "config": st.get("config"), "command": st.get("command"), "matchesConfig": not diff, "differences": diff})
     else:
         out["startedByThisTool"] = False
         if d:
@@ -284,10 +315,12 @@ def status(cfg, say=print):
     if not d:
         say("engine: %s at %s" % ("loading the model" if starting(cfg) else "not answering", url(cfg)))
         return 1
-    say("engine: %(url)s  model=%(alias)s  slots=%(slots)s (busy %(busy)s)  n_ctx per slot=%(nCtxPerSlot)s  pid=%(pid)s" % d)
+    shown = dict(d, busy=d["busy"] if d["busy"] is not None else "unknown",
+                 nCtxPerSlot=d["nCtxPerSlot"] if d["nCtxPerSlot"] is not None else "unknown")
+    say("engine: %(url)s  model=%(alias)s  slots=%(slots)s (busy %(busy)s)  n_ctx per slot=%(nCtxPerSlot)s  pid=%(pid)s" % shown)
     st = state()
     if st:
-        diff = differences(cfg, st["config"])
+        diff = differences(cfg, st["config"], st.get("identity"))
         say("        %s  %s  started %s%s" % (st["model"].get("id") or st["model"].get("path"), st.get("build"), st.get("startedAt"),
                                              ("  DIFFERS from the configuration: " + json.dumps(diff)) if diff else ""))
     pl = pool(st["config"] if st else cfg, d["slotList"])

@@ -6,8 +6,10 @@ Run, measure and tune local LLM inference engines on the machine you have, and c
 
 It takes the engine boilerplate out of the projects that use a model (first [Sub0Squad](https://github.com/CraigHutchinson/Sub0Squad)):
 one place that knows how to start an engine with the right placement for *this* machine, how fast each configuration
-really is, and where the weights are. Backends: **llama.cpp** today; strata and Sub0Llm are planned behind the same
-interface (`sub0llmengine/backends/`). Python 3.10+, standard library plus [Sub0Platform](https://github.com/CraigHutchinson/Sub0Platform) (the shared
+really is, and where the weights are. **llama.cpp**, **Strata** and **Basalt** have serving adapters behind the same
+interface (`sub0llmengine/backends/`); the shared benchmark sweep currently supports llama.cpp only. **Sub0Llm** remains
+planned. See [backend setup and verification](docs/backends/README.md). Image input and migration of the current 131K
+llama.cpp profile are tracked in the [backlog](docs/BACKLOG.md). Python 3.10+, standard library plus [Sub0Platform](https://github.com/CraigHutchinson/Sub0Platform) (the shared
 platform layer: a clone beside this repository is found without installing, or `pip install
 git+https://github.com/CraigHutchinson/Sub0Platform@v0.1.0`). Windows and Linux (including WSL).
 

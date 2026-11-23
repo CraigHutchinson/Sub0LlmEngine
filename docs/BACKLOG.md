@@ -8,13 +8,19 @@ milestone. Done items are kept short here and leave in the next tidy-up (git kee
 * **M1 serving basics** (in progress; done: pool watermark in `status --json`, loading instance counts as present,
   named profiles with evidence, `kvUnifiedPerSlot` knob). Next: start from requirements (*Start from requirements*); default build
   moved to upstream after re-measuring; pool-exhaustion spike (*KV memory model*); B = 3..16 at depth >= 16k
-  (*Tuning map*); choose and record the final serving configuration in RESULTS.md.
+  (*Tuning map*); choose and record the final serving configuration in RESULTS.md; migrate and verify the current
+  131,072-token llama.cpp serving profile (*Migration from `D:\tools\llamacpp`*); add image-capable llama.cpp serving
+  (*Image input*).
 * **M2 supervision and arbitration**: named instances, restart on crash, log rotation, one lock for instances and
   benches, resource allowances (*Tuning map*), service install (*Engine supervision*).
 * **M3 gateway**: OpenAI-compatible proxy with admission, the watermark in responses, usage records, routing.
 * **M4 workload-adaptive configuration** (*Workload-adaptive engine configuration*): the spike is done; next the
   bounded fixture against fixed configurations.
-* **M5 backends and machines**: strata, Sub0Llm; build management; model offers (*Engine supervision*).
+* **M5 backends and machines**: detect, acquire/build and install backends compatible with the machine; profile each
+  backend independently; Strata and Basalt serving adapters and their current Windows releases are acquired, but
+  lifecycle verification, native profiling and automated compatibility/install remain; Sub0Llm; model-pack support;
+  iterate on model registry and acquisition tooling (*Engine supervision*, *Strata and Basalt backends*,
+  *Model registry iteration*).
 * **Evidence quality** (any time): placement prediction from registry facts, recency for repeats, warm-up prefill in the
   spike, the open model issues (`docs/issues/`).
 
@@ -143,4 +149,78 @@ KV quantization, speculative decoding, flash attention, thread and CPU-MoE place
 - Offer models for the machine: query the registry (`sub0llmregistry` `query(moe=..., maxBytes=..., minContext=...)`)
   and its providers, rank by predicted fit and speed, and fetch only with the owner's go-ahead
   (`python -m sub0llmregistry fetch`, which asks before downloading).
-- Backends beyond llama.cpp (strata, the Sub0Llm engine) behind the same backend interface.
+- Backends beyond llama.cpp (Strata, Basalt and the Sub0Llm engine) behind the backend contract; see
+  *Strata and Basalt backends*.
+- Detect compatible engines for the current OS, GPU/compute capability, driver/toolkit, RAM/VRAM and storage; present
+  the available prebuilt, install or source-build path per backend. Pin and record backend versions/build options and
+  compatibility results. Build/install/download actions require explicit owner approval.
+- Include every compatible backend in profiling as its own backend/model/build/config evidence series. Use matched
+  workloads and record model artifact/quantization, context, concurrency, images, warm state and raw metrics; normalize
+  only metrics that are genuinely comparable. Keep backend-specific metrics and limitations visible rather than
+  treating configurations or scores as interchangeable.
+- On this computer, test the hypothesis that Basalt may perform best; its compatible Windows runtime is acquired, but
+  the performance hypothesis remains unverified until a compatible model pack and matched workload are profiled against
+  llama.cpp on this machine.
+
+## Migration from `D:\tools\llamacpp` (M1, then M2)
+
+The separate `D:\tools\llamacpp` checkout is the current serving/development source of truth until migration is
+verified. Its README documents a 131,072-token profile with four slots, unified KV and a multimodal projector; its
+`Serve.ps1` also handles image-token limits and synchronizes the actual `/props` context to the VS Code input budget.
+This repo's local engine config currently records `ctx: 106496`, eight slots and no projector, so do not treat those
+settings as already migrated or equivalent.
+
+- Inventory and record the active model, resolved server/build paths, effective launch arguments, context, slots,
+  KV/cache settings, multimodal projector and client limits from the serving checkout. Do not copy its working tree
+  wholesale: preserve its independent changes and keep machine-local files/credentials out of this repo.
+- Recreate the serving profile as a Sub0LlmEngine config/profile with evidence; verify the model, build, actual
+  `/props` context, pool size and client input/output budget agree. Benchmark the 131,072-token target on this machine
+  and record the tested prompt depths separately from allocated context before making it the default.
+- Port only the still-needed runtime behavior (startup/readiness, projector and image settings, long-request timeout,
+  and client context-budget synchronization) behind existing config/backend contracts. Keep build/setup and tuning
+  automation migration separate from serving parity; remove or retire old scripts only after parity is verified.
+
+## Image input (llama.cpp; M1)
+
+- Support an optional `mmproj` (or the model/build's native multimodal path) in the llama.cpp config and server
+  command, including projector placement and image token limits where the selected build supports them. Validate
+  paths/flags clearly; do not silently start a text-only server when a configured projector is unavailable.
+- Confirm that the selected model and projector are compatible, start the server, and send an OpenAI-compatible
+  image-bearing request end to end. Preserve text-only behavior when vision is not configured.
+- Report vision capability/configuration in the engine status/config contract, and record the image-serving profile
+  and its evidence. Keep image token usage within the same shared context/pool accounting; avoid claiming vision
+  support from a text-only health check.
+
+## Strata and Basalt backends (M5)
+
+The first Strata and Basalt serving adapters now launch their native CLI from an explicit profile/config file and read
+the OpenAI-compatible health/model endpoints. They do not download or prepare models. The shared benchmark interface
+still cannot represent either native profiler. See [backend setup and verification](backends/README.md) for the acquired
+releases and checks. [Strata's install guide](https://www.stratat.com/en/install) documents its Terminal flow and
+managed model preparation; [Basalt's quick start](https://basalt.jgulfo.com/#start) documents `basalt serve --config`,
+`.basalt` model packs, and Blackwell/CUDA-13-specific capabilities.
+
+Extend lifecycle/status only as verified (including wrapper/child process shutdown), API auth, model identity/format,
+image capability and comparable native profiling. Keep all installs, downloads, model preparation and disruptive
+restarts explicitly owner-approved.
+
+- Strata: validate profile/CLI compatibility and foreground lifecycle, including clean stop and actual model identity,
+  without assuming its API port, credential mode, model or hardware support. Treat managed model packs and vision modes
+  as backend-specific rather than GGUF flags.
+- Basalt: detect supported OS/GPU/CUDA and compatible pack before attempting startup; verify launcher/child shutdown
+  and `.basalt` pack identity without routing the pack through the GGUF registry. Exercise health, OpenAI-compatible
+  text and image requests, and its native benchmark path; keep results distinct unless workloads are demonstrably
+  equivalent.
+- Keep evidence partitioned by backend, model/pack, build, hardware and settings. Do not compare raw scores across
+  engines unless the workload and metric are demonstrably equivalent. Sub0Llm remains a separate planned adapter.
+
+## Model registry iteration (M5)
+
+Iterate on Sub0LlmModelRegistry and its tooling so the engine can discover model artifacts and packs compatible with
+each installed backend, report storage/hardware requirements, and manage an owner-approved download with clear
+progress, integrity and completion status. Do not treat non-GGUF backend packs as GGUF files or send them through an
+incompatible loader.
+
+- Add Inkling 2 Mini as a planned model-acquisition and profiling case: identify a compatible artifact for the
+  machine/backend, download it through the registry tooling only after approval, verify it, then use it in the
+  per-backend profiling comparison. The model is not downloaded as part of this backlog update.
