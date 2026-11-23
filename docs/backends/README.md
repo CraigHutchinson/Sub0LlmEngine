@@ -39,4 +39,21 @@ workloads match.
 |---|---|---|---|---|
 | llama.cpp b12576 | Qwen3.6-35B-A3B APEX I-Compact | 11.5 s | 57 tok/s | 1,309 tok/s (decode 48 tok/s after it) |
 
-Strata and Basalt: not run (need owner-approved model downloads; see [registry integration](registry-integration.md)).
+### Inkling 2 Mini on all three engines (2026-11-23, same machine, 8 GB VRAM, 64 GB RAM)
+
+Model `inkling-2-mini`, requested by format from the registry. One slot, 8k context, the same prompts (a 29-token code
+request, then a 6.4k-token summary), temperature 0, native server timings. Each artifact is a different quantization
+and each engine applies its own thinking default, so read these as "what you get on this laptop", not a like-for-like
+kernel comparison.
+
+| Engine | Artifact | Placement | Decode (tok/s) | Prefill 6.4k (tok/s) | Notes |
+|---|---|---|---|---|---|
+| llama.cpp b12665 (master) | Unsloth UD-Q3_K_XL GGUF, 12.7 GB | `-ncmoe 17 --no-op-offload`, 5.4 GB VRAM | 19.4 | 70 | Thinks by default (empty `content` at 128 tokens). Without `--no-op-offload` the compute buffer is 7 to 8 GB and the load fails |
+| Strata 0.2.20 (engine 0.1.66) | SQ-15 `.strata`, 13.4 GB | its own plan, 6.7 GB VRAM | about 10 | about 500 | Answered without thinking, so decode is end-to-end (63 tokens in 7 s) |
+| Basalt 0.5.6 | NVFP4-DQ8 `.basalt`, 18.4 GB | engine's cache, 15 GB in RAM, 1.9 GB VRAM | 37 | 1,542 | Thinks by default; drafting accepted 76% |
+
+Basalt was fastest by a wide margin on this card (the backlog's hypothesis holds for this model). llama.cpp's slow
+prefill is the CPU-resident experts. How each was started: llama.cpp `llama-server` directly; Strata `strata launch
+--family inkling-2-mini --model sq-15 --data-dir <hard-linked registry files>`; Basalt `basalt serve --model <pack>
+--max-context 8192`. The adapters need a native profile/config file, so these runs did not go through
+`python -m sub0llmengine start`; building that path (and the config each backend needs) is the next adapter step.
