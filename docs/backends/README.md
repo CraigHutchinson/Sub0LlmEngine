@@ -28,3 +28,15 @@ server is stopped by its owner.
 - [Strata](strata.md): signed release acquisition, installation and CLI verification.
 - [Basalt](basalt.md): release acquisition and isolated CLI/dependency checks.
 - [Registry integration](registry-integration.md): how each backend consumes Sub0LlmModelRegistry models, and the gaps.
+
+## Smoke results (2026-11-23, RTX 5070 Laptop 8 GB)
+
+Fixed prompts at temperature 0, `/v1/chat/completions`, thinking off, against the owner's running profile (4 slots,
+131,072 ctx, `-ncmoe 32`, q8_0 KV). Native server timings; not comparable with other engines' numbers until their
+workloads match.
+
+| Backend | Model | Cold start (wake + 102 tok) | Decode warm | Prefill 5.6k tokens |
+|---|---|---|---|---|
+| llama.cpp b12576 | Qwen3.6-35B-A3B APEX I-Compact | 11.5 s | 57 tok/s | 1,309 tok/s (decode 48 tok/s after it) |
+
+Strata and Basalt: not run (need owner-approved model downloads; see [registry integration](registry-integration.md)).
