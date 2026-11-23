@@ -9,7 +9,7 @@ How each backend consumes models from Sub0LlmModelRegistry (`D:\Craig\GitHub\Sub
 | llama.cpp | GGUF (+ `mmproj` role) | Complete: alias, shards, facts, eviction | Nothing for serving |
 | Strata | GGUF run through its own model prep (unverified: `strata models` reads setup-written run configs) | Path only | Verify what a Strata run config references before assuming the registry file is used |
 | Basalt | `.basalt` pack, not GGUF | None | A pack area, a provider and a reader (below) |
-| Inkling 2 Mini (safetensors, `inkling2_loop`) | Hugging Face safetensors, 8-bit ModelOpt | `format` allows `safetensors`, no facts reader | A GGUF/pack for a backend that supports the architecture first |
+| Inkling 2 Mini (shared test model) | llama.cpp: Unsloth GGUF (mainline build >= b12600); Strata: `.strata` or the GGUF; Basalt: `.basalt` | GGUF only | Strata and Basalt areas, so one model has three registered artifacts |
 
 ## Gaps, in the order they block the shootout
 
