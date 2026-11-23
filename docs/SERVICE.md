@@ -21,8 +21,8 @@ Python package stays as the reference until the service passes the same tests.
 | Diagnostics that survive a hard kill | Sub0Log |
 | Typed events (status, pool level, lease changes) | Sub0Pub |
 | Job graphs, cancellation (admission, drain and switch) | Sub0Pipeline |
-| JSON for contracts and bench history | simdjson (as Squad), a writer to choose |
-| Local HTTP API and client calls to backends | Boost.Beast (HTTP/1.1 on loopback), only in the `net` layer; HTTP/2 for a later "v2" would add nghttp2 behind the same `net` interfaces |
+| JSON for contracts and bench history | simdjson 5.1.1 (Squad DECISIONS #16): on-demand reads, `builder::string_builder` writes; types stay out of public headers |
+| Local HTTP API and client calls to backends | Boost.Beast 1.92.0 (Squad DECISIONS #18), only in the `net` layer behind `IHttpFront` / `IHttpClient`; HTTP/2 for a later "v2" would add nghttp2 behind the same `net` interfaces |
 
 ## Layers (lowest first)
 
@@ -70,6 +70,25 @@ HTTP and JSON-writer choices; whether the tuning page is served by the service; 
 Scaffold status: step 1 is done (CMake, CPM, Version.cmake, presets, layer chain, label rules, one smoke test, CI smoke).
 Next: Sub0Platform and the `net` layer, then contracts with shared fixtures.
 
-Open for the owner: MSVC in CI full next to MinGW; whether sub0perf moves to its own repository; a PR of the label spec to
-CraigHutchinson/.github now or after the engine proves it; Boost 1.89 via the tarball (about 100 MB in the shared cache); the
-network-using token count for the notation benchmark; the GPU canary's fixed model and parameters.
+## Prior Sub0 decisions checked (2026-11-23, Haiku survey of the sibling repositories)
+
+Followed: C++23, CMake + CPM with exact pins and per-machine `CPM_<Name>_SOURCE` overrides, a shared cache outside the repo, the layer
+check, the family's smoke/full CI with the pinned reusable workflows, sub0perf kept out of CI, Version.cmake with the git-semver
+wrapper, `sub0<name>/` include paths and lowercase namespaces (changed from `sub0/engine/` after the survey: now
+`include/sub0llmengine/<layer>/`, namespace `sub0llmengine`), camelCase functions, `#pragma once`, `[[nodiscard]]`.
+
+Aligned with Squad: HTTP is Boost.Beast + Asio behind `IHttpFront` and `IHttpClient`, Asio is not the daemon's event loop
+(DECISIONS #18); Boost 1.92.0 (this engine is the first to build it, so its pin is the family's); simdjson 5.1.1 with the builder.
+
+Still conflicting or open:
+
+* **Beast or Sub0Platform `net`.** Sub0Canvas' review (D7) sets "native HTTP on Platform `net`" as the local default, and Squad's portal already
+  serves HTTP that way. The seams keep both possible; HTTP/2 needs TLS, which Platform `net` lacks.
+* **Tiers.** Squad has `smoke | full` only; the engine adds `local` and `needs:`/`area:` labels. Offered to the shared spec.
+* **MSVC.** The family ci-strategy full tier includes MSVC and macOS; Squad's full tier is GCC, Clang and MinGW. The engine's `ci-full.yml`
+  will include MSVC (the native Windows service target) unless the owner says otherwise.
+* **Compiler references.** Squad STATUS names clang 21 as the reference and GCC 15 as buildable; DEV_SETUP says CI uses GCC 14 and Clang 19.
+* **Layers** differ per project by design; the **working-title** rule applies to Squad only.
+
+Open for the owner: whether sub0perf moves to its own repository; a PR of the label spec to CraigHutchinson/.github now or after the engine
+proves it; the network-using token count for the notation benchmark; the GPU canary's fixed model and parameters.

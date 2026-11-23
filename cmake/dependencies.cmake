@@ -11,6 +11,14 @@ CPMAddPackage(NAME Sub0Platform
   SOURCE_SUBDIR cpp
   OPTIONS "SUB0PLATFORM_BUILD_TESTS OFF" "SUB0PLATFORM_INSTALL OFF")
 
+# Boost.Beast + Asio: HTTP behind our own IHttpFront/IHttpClient seams (Sub0Squad DECISIONS #18; Asio is not the daemon's event loop). The CMake-enabled
+# release tarball (about 102 MiB, cached once in CPM_SOURCE_CACHE) with only Beast and what it needs. This is the first Sub0 project to build it: Squad pins
+# Boost 1.92.0 "when first used", so this pin is the family's. Only the net layer includes <boost/...> (cmake/CheckLayers.cmake).
+CPMAddPackage(NAME Boost
+  VERSION 1.92.0
+  URL https://github.com/boostorg/boost/releases/download/boost-1.92.0/boost-1.92.0-cmake.tar.xz
+  OPTIONS "BOOST_ENABLE_CMAKE ON" "BOOST_INCLUDE_LIBRARIES beast" "BOOST_SKIP_INSTALL_RULES ON")
+
 # simdjson: the one JSON library (as in Sub0Squad and Sub0Llm). It stays private to the contracts layer (cmake/CheckLayers.cmake).
 CPMAddPackage(NAME simdjson
   GIT_REPOSITORY https://github.com/simdjson/simdjson.git
@@ -18,11 +26,11 @@ CPMAddPackage(NAME simdjson
   OPTIONS "SIMDJSON_DEVELOPER_MODE OFF")
 
 # Version.cmake: git describe -> version fields and a generated header, refreshed on every configure (same pin and wrapper as Sub0Squad).
-# Provides version::version and sub0engine::version::version_sha / version_full (...-dirty when the tree has changes).
-set(VERSION_OUT_DIR "${CMAKE_BINARY_DIR}/generated/sub0engine")
+# Provides version::version and sub0llmengine::version::version_sha / version_full (...-dirty when the tree has changes).
+set(VERSION_OUT_DIR "${CMAKE_BINARY_DIR}/generated/sub0llmengine")
 set(VERSION_FALLBACK "0.0.0")
 set(VERSION_H_FILENAME "Version.hpp")
-set(VERSION_NAMESPACE "sub0engine::version")
+set(VERSION_NAMESPACE "sub0llmengine::version")
 # Version.cmake writes an empty header when the nearest tag is not a semantic version, so it is given a git that describes only v<major>.<minor>
 # tags. The package is fetched with plain git and only then added: FetchContent's own git calls must not go through the wrapper (cmd.exe eats the
 # `^` of `git rev-parse HEAD^0`).

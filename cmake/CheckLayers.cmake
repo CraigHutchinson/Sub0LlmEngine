@@ -1,4 +1,4 @@
-# Layering check: a file under src/<layer> or include/sub0/engine/<layer> may include "sub0/engine/<other>/..." only for its own or a lower layer;
+# Layering check: a file under src/<layer> or include/sub0llmengine/<layer> may include "sub0llmengine/<other>/..." only for its own or a lower layer;
 # <boost/...> only under net; <simdjson.h> only under contracts. Run as: cmake -DSRC_DIR=<repo> -P CheckLayers.cmake
 if(NOT SRC_DIR OR NOT EXISTS "${SRC_DIR}/CMakeLists.txt")
   message(FATAL_ERROR "layering check: pass -DSRC_DIR=<repository root> (got '${SRC_DIR}')")
@@ -12,12 +12,12 @@ foreach(layer ${SUB0ENGINE_LAYERS})
   math(EXPR index "${index} + 1")
 endforeach()
 foreach(layer ${SUB0ENGINE_LAYERS})
-  file(GLOB_RECURSE files "${SRC_DIR}/src/${layer}/*" "${SRC_DIR}/include/sub0/engine/${layer}/*")
+  file(GLOB_RECURSE files "${SRC_DIR}/src/${layer}/*" "${SRC_DIR}/include/sub0llmengine/${layer}/*")
   foreach(f ${files})
     math(EXPR count "${count} + 1")
     file(STRINGS "${f}" lines REGEX "^#include")
     foreach(l ${lines})
-      if(l MATCHES "^#include [\"<]sub0/engine/([a-z_0-9]+)/")
+      if(l MATCHES "^#include [\"<]sub0llmengine/([a-z_0-9]+)/")
         set(other ${CMAKE_MATCH_1})
         if(NOT DEFINED rank_${other})
           list(APPEND bad "${f}: includes unknown layer '${other}'")
