@@ -92,3 +92,16 @@ W1 and W2 touch disjoint engine directories (`evidence`, `fit`, `apps`, tools ag
 | W4 | not started |
 | W5 | not started |
 | W6 | not started |
+
+## 8. Follow-up issues (raised 2026-11-24)
+
+| Aspect | Home | Issue |
+|---|---|---|
+| Machine lease: state dir helper, shared lock mode, lift the lease module | Sub0Platform | [Sub0Platform#2](https://github.com/CraigHutchinson/Sub0Platform/issues/2) |
+| sub0perf wraps its runs in the lease | Sub0Math | [Sub0Math#7](https://github.com/CraigHutchinson/Sub0Math/issues/7) |
+| HTTP seam: concurrent front, streaming | Sub0Fabric (engine first) | [Sub0Fabric#1](https://github.com/CraigHutchinson/Sub0Fabric/issues/1), comment on [Sub0LlmEngine#1](https://github.com/CraigHutchinson/Sub0LlmEngine/issues/1) |
+| Shared scaffolding and JSON helper | Sub0Fabric | [Sub0Fabric#2](https://github.com/CraigHutchinson/Sub0Fabric/issues/2) |
+| Lease in host guard, portal and client onto the seam, wire fixtures | Sub0Squad | [Sub0Squad#8](https://github.com/CraigHutchinson/Sub0Squad/issues/8) |
+| Shell home and the engine page as a panel | Sub0Canvas | [Sub0Canvas#5](https://github.com/CraigHutchinson/Sub0Canvas/issues/5) |
+| Portal data contract, knob descriptor, slot and VRAM fields | Sub0LlmEngine | [Sub0LlmEngine#2](https://github.com/CraigHutchinson/Sub0LlmEngine/issues/2) |
+| Fit: parallel slots, per-backend levers, fit records | Sub0LlmEngine | [Sub0LlmEngine#3](https://github.com/CraigHutchinson/Sub0LlmEngine/issues/3) |
