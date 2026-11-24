@@ -3,6 +3,7 @@
 #include "sub0llmengine/supervision/machine_lease.hpp"
 
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 int main()
@@ -30,6 +31,18 @@ int main()
     auto again = MachineLease::acquire("sub0perf", "timing", lockFile);
     CHECK(again.has_value());
     CHECK(MachineLease::readOwner(lockFile)->tool == "sub0perf");
+
+    // A record in sub0perf's own format (pid, time, what; no tool) reads, and the message names it as a sub0perf run.
+    {
+        const auto perfLock = std::filesystem::path{"test-tmp"} / "lease" / "perf.lock";
+        {
+            std::ofstream record{std::filesystem::path{perfLock.string() + ".owner"}};
+            record << R"({"pid": 4242, "time": 1795525516.5, "what": "gate"})";
+        }
+        const auto owner = MachineLease::readOwner(perfLock);
+        CHECK(owner.has_value() && owner->pid == 4242 && owner->purpose == "gate" && owner->tool.empty());
+        CHECK(owner.has_value() && owner->time > 1.7e9);
+    }
 
     // The default file is per user and under a sub0 folder.
     CHECK(MachineLease::defaultLockFile().filename() == "machine.lock");

@@ -21,9 +21,9 @@ std::filesystem::path ownerFileOf(const std::filesystem::path& lockFile)
     return path;
 }
 
-std::string localTime()
+std::string localTime(double epochSeconds)
 {
-    const auto now = std::time(nullptr);
+    const auto now = static_cast<std::time_t>(epochSeconds);
     std::tm tm{};
 #ifdef _WIN32
     localtime_s(&tm, &now);
@@ -39,7 +39,43 @@ std::string describe(const std::optional<LeaseOwner>& owner)
     {
         return "another process holds the machine (no owner record)";
     }
-    return std::format("{} holds the machine since {} for {} (pid {})", owner->tool, owner->since, owner->purpose, owner->pid);
+    return std::format("{} holds the machine since {} for {} (pid {})", owner->tool.empty() ? "a sub0perf run" : owner->tool, localTime(owner->time),
+                       owner->purpose, owner->pid);
+}
+
+std::string quoted(const std::string& text)
+{
+    std::string out = "\"";
+    for (const char c : text)
+    {
+        if (c == '"' || c == '\\') out += '\\';
+        out += c;
+    }
+    return out + '"';
+}
+
+/// The raw text after `"key":` in a flat one-line JSON object: a quoted string (unescaped) or a number. Enough for the record this
+/// file writes and the one sub0perf writes; simdjson stays in the contracts layer.
+std::optional<std::string> fieldOf(const std::string& json, const std::string& key)
+{
+    const auto at = json.find("\"" + key + "\"");
+    if (at == std::string::npos) return std::nullopt;
+    auto i = json.find(':', at);
+    if (i == std::string::npos) return std::nullopt;
+    for (++i; i < json.size() && json[i] == ' '; ++i) {}
+    if (i >= json.size()) return std::nullopt;
+    std::string out;
+    if (json[i] == '"')
+    {
+        for (++i; i < json.size() && json[i] != '"'; ++i)
+        {
+            if (json[i] == '\\' && i + 1 < json.size()) ++i;
+            out += json[i];
+        }
+        return out;
+    }
+    for (; i < json.size() && json[i] != ',' && json[i] != '}' && json[i] != ' '; ++i) out += json[i];
+    return out;
 }
 
 }  // namespace
@@ -80,20 +116,19 @@ std::filesystem::path MachineLease::defaultLockFile()
 std::optional<LeaseOwner> MachineLease::readOwner(const std::filesystem::path& lockFile)
 {
     std::ifstream in{ownerFileOf(lockFile)};
-    std::string line;
-    if (!in || !std::getline(in, line))
+    std::ostringstream text;
+    text << in.rdbuf();
+    const auto json = text.str();
+    const auto pid = fieldOf(json, "pid");
+    if (!pid)
     {
         return std::nullopt;
     }
     LeaseOwner owner;
-    std::istringstream fields{line};
-    std::string pid;
-    if (!std::getline(fields, owner.tool, '\t') || !std::getline(fields, owner.purpose, '\t') || !std::getline(fields, pid, '\t') ||
-        !std::getline(fields, owner.since, '\t'))
-    {
-        return std::nullopt;
-    }
-    owner.pid = std::atoll(pid.c_str());
+    owner.pid = std::atoll(pid->c_str());
+    owner.tool = fieldOf(json, "tool").value_or("");
+    owner.purpose = fieldOf(json, "what").value_or("");
+    owner.time = std::atof(fieldOf(json, "time").value_or("0").c_str());
     return owner;
 }
 
@@ -116,8 +151,8 @@ std::expected<MachineLease, SupervisionError> MachineLease::acquire(const std::s
     state->lock = std::move(**taken);
     state->ownerFile = ownerFileOf(lockFile);
     std::ofstream out{state->ownerFile, std::ios::trunc};
-    // Tab-separated, one line: a record a person can read with any tool, and the tool name and purpose carry no tabs.
-    out << tool << '\t' << purpose << '\t' << sub0platform::currentProcess() << '\t' << localTime() << '\n';
+    const auto now = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+    out << std::format(R"({{"pid": {}, "time": {:.3f}, "what": {}, "tool": {}}})", sub0platform::currentProcess(), now, quoted(purpose), quoted(tool)) << '\n';
     return MachineLease{std::move(state)};
 }
 
