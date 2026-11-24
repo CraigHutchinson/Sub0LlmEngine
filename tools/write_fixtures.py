@@ -80,8 +80,50 @@ def llamacppCommands():
     return {"cases": cases}
 
 
+# (name, kind, config, host is Windows, COMSPEC)
+NATIVE_CASES = [
+    ("strata-defaults", "strata", {"strataBin": "S/strata.exe", "strataProfile": "P/profile.json"}, False, ""),
+    ("strata-port-slots", "strata", {"strataBin": "S/strata.exe", "strataProfile": "P/profile.json", "port": 8123, "slots": 2, "host": "127.0.0.1"}, False, ""),
+    ("strata-batch-launcher-windows", "strata", {"strataBin": "C:/Strata dir/strata.cmd", "strataProfile": "C:/p q/profile.json", "slots": 1},
+     True, r"C:\Windows\system32\cmd.exe"),
+    ("strata-batch-launcher-posix", "strata", {"strataBin": "S/strata.cmd", "strataProfile": "P/profile.json"}, False, ""),
+    ("strata-exe-windows", "strata", {"strataBin": "C:/Strata/strata.exe", "strataProfile": "C:/p/profile.json"}, True, "cmd.exe"),
+    ("basalt", "basalt", {"basaltBin": "B/basalt.exe", "basaltConfig": "C/basalt.json"}, False, ""),
+    ("basalt-bat-windows", "basalt", {"basaltBin": "C:/Basalt/basalt.BAT", "basaltConfig": "C:/my config/basalt.json"}, True, ""),
+]
+QUOTING = ["plain", "a b", "", 'c"d', "e\\", "e\\ f", 'say "hi there"', "tab\tx", "C:\\Program Files\\x\\"]
+
+
+def nativeCommands():
+    import subprocess
+    from sub0llmengine import backends as backendsPackage
+    from sub0llmengine.backends import basalt, strata
+    strata.requiredFile = lambda cfg, key, label: cfg[key]
+    basalt.requiredFile = lambda cfg, key, label: cfg[key]
+    saved = (backendsPackage.platform.IS_WINDOWS, os.environ.get("COMSPEC"))
+    cases = []
+    try:
+        for name, kind, cfg, windows, comspec in NATIVE_CASES:
+            backendsPackage.platform.IS_WINDOWS = windows
+            if comspec:
+                os.environ["COMSPEC"] = comspec
+            else:
+                os.environ.pop("COMSPEC", None)
+            backend = strata.Strata() if kind == "strata" else basalt.Basalt()
+            cases.append({"name": name, "kind": kind, "config": cfg, "windows": windows, "comspec": comspec,
+                          "argv": backend.serverCommand(cfg, "unused")})
+    finally:
+        backendsPackage.platform.IS_WINDOWS = saved[0]
+        if saved[1] is None:
+            os.environ.pop("COMSPEC", None)
+        else:
+            os.environ["COMSPEC"] = saved[1]
+    return {"cases": cases, "quoting": [{"in": a, "out": subprocess.list2cmdline([a])} for a in QUOTING]}
+
+
 def fixtures():
-    return {"bench/summary.json": benchSummary(), "backends/llamacpp_command.json": llamacppCommands()}
+    return {"bench/summary.json": benchSummary(), "backends/llamacpp_command.json": llamacppCommands(),
+            "backends/native_command.json": nativeCommands()}
 
 
 def main():

@@ -1,5 +1,7 @@
 #include "sub0llmengine/contracts/bench_record.hpp"
 
+#include "json_fields.hpp"
+
 #include <simdjson.h>
 
 #include <format>
@@ -11,46 +13,14 @@ namespace
 {
 
 namespace od = simdjson::ondemand;
+using json::integer;
+using json::isNull;
+using json::real;
+using json::text;
 
 ContractError bad(std::string what)
 {
     return ContractError{std::move(what)};
-}
-
-std::string str(od::value v)
-{
-    std::string_view s;
-    if (v.get(s) != simdjson::SUCCESS)
-    {
-        throw std::runtime_error("expected a string");
-    }
-    return std::string{s};
-}
-
-std::int64_t integer(od::value v)
-{
-    std::int64_t n = 0;
-    if (v.get(n) != simdjson::SUCCESS)
-    {
-        throw std::runtime_error("expected an integer");
-    }
-    return n;
-}
-
-double real(od::value v)
-{
-    double d = 0;
-    if (v.get(d) != simdjson::SUCCESS)
-    {
-        throw std::runtime_error("expected a number");
-    }
-    return d;
-}
-
-bool isNull(od::value v)
-{
-    bool null = false;
-    return v.is_null().get(null) == simdjson::SUCCESS && null;
 }
 
 ParamValue param(od::value v)
@@ -72,7 +42,7 @@ ParamValue param(od::value v)
         return b;
     }
     case od::json_type::string:
-        return str(v);
+        return text(v, "params");
     case od::json_type::number:
     {
         od::number_type kind{};
@@ -82,9 +52,9 @@ ParamValue param(od::value v)
         }
         if (kind == od::number_type::floating_point_number)
         {
-            return real(v);
+            return real(v, "params");
         }
-        return integer(v);
+        return integer(v, "params");
     }
     default:
         throw std::runtime_error("a parameter must be a number, a flag or a string");
@@ -133,24 +103,24 @@ BenchRecord parse(std::string_view line)
         }
         const std::string key{keyView};
         od::value v = field.value();
-        if (key == "ts") r.ts = str(v);
-        else if (key == "machine") r.machine = str(v);
-        else if (key == "backend") r.backend = str(v);
-        else if (key == "build") r.build = str(v);
-        else if (key == "model") r.model = str(v);
-        else if (key == "note") r.note = str(v);
-        else if (key == "depth") r.depth = integer(v);
-        else if (key == "ntg") r.ntg = integer(v);
-        else if (key == "B") r.concurrency = integer(v);
-        else if (key == "vramBaseMiB") r.vramBaseMiB = integer(v);
-        else if (key == "peakVramMiB") { if (!isNull(v)) r.peakVramMiB = integer(v); }
-        else if (key == "wallSec") { if (!isNull(v)) r.wallSec = real(v); }
-        else if (key == "ppTps") { if (!isNull(v)) r.ppTps = real(v); }
-        else if (key == "tgTps") { if (!isNull(v)) r.tgTps = real(v); }
-        else if (key == "tgPerSeq") { if (!isNull(v)) r.tgPerSeq = real(v); }
-        else if (key == "error") { if (!isNull(v)) r.error = str(v); }
-        else if (key == "excluded") { if (!isNull(v)) r.excluded = str(v); }
-        else if (key == "outcome") { r.outcome = outcomeOf(str(v)); haveOutcome = true; }
+        if (key == "ts") r.ts = text(v, key);
+        else if (key == "machine") r.machine = text(v, key);
+        else if (key == "backend") r.backend = text(v, key);
+        else if (key == "build") r.build = text(v, key);
+        else if (key == "model") r.model = text(v, key);
+        else if (key == "note") r.note = text(v, key);
+        else if (key == "depth") r.depth = integer(v, key);
+        else if (key == "ntg") r.ntg = integer(v, key);
+        else if (key == "B") r.concurrency = integer(v, key);
+        else if (key == "vramBaseMiB") r.vramBaseMiB = integer(v, key);
+        else if (key == "peakVramMiB") { if (!isNull(v)) r.peakVramMiB = integer(v, key); }
+        else if (key == "wallSec") { if (!isNull(v)) r.wallSec = real(v, key); }
+        else if (key == "ppTps") { if (!isNull(v)) r.ppTps = real(v, key); }
+        else if (key == "tgTps") { if (!isNull(v)) r.tgTps = real(v, key); }
+        else if (key == "tgPerSeq") { if (!isNull(v)) r.tgPerSeq = real(v, key); }
+        else if (key == "error") { if (!isNull(v)) r.error = text(v, key); }
+        else if (key == "excluded") { if (!isNull(v)) r.excluded = text(v, key); }
+        else if (key == "outcome") { r.outcome = outcomeOf(text(v, key)); haveOutcome = true; }
         else if (key == "params")
         {
             od::object params;

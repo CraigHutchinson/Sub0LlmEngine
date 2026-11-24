@@ -1,5 +1,7 @@
 #include "sub0llmengine/contracts/llama_config.hpp"
 
+#include "json_fields.hpp"
+
 #include <simdjson.h>
 
 #include <stdexcept>
@@ -10,36 +12,9 @@ namespace
 {
 
 namespace od = simdjson::ondemand;
-
-std::int64_t integer(od::value v, const std::string& key)
-{
-    std::int64_t n = 0;
-    if (v.get(n) != simdjson::SUCCESS)
-    {
-        throw std::runtime_error("'" + key + "' must be an integer");
-    }
-    return n;
-}
-
-std::string text(od::value v, const std::string& key)
-{
-    std::string_view s;
-    if (v.get(s) != simdjson::SUCCESS)
-    {
-        throw std::runtime_error("'" + key + "' must be a string");
-    }
-    return std::string{s};
-}
-
-bool flag(od::value v, const std::string& key)
-{
-    bool b = false;
-    if (v.get(b) != simdjson::SUCCESS)
-    {
-        throw std::runtime_error("'" + key + "' must be true or false");
-    }
-    return b;
-}
+using json::flag;
+using json::integer;
+using json::text;
 
 /// Argument strings may be written as numbers in a config (an extra flag's value); they are kept as text.
 std::string argument(od::value v)
