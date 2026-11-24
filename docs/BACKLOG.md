@@ -245,6 +245,8 @@ session: `sub0llmengine fit --model NAME --backend basalt --target-context N` pr
 
 ## Machine exclusivity and the sub0perf workflow (owner, 2026-11-24; GitHub issue 1)
 
+Decided in the family review: [reviews/2026-11-24-family-responsibilities.md](reviews/2026-11-24-family-responsibilities.md) (D4 machine lease on Platform's `FileLock`, waves W1 and W2 here).
+
 - Timing runs on this machine must never overlap: a fit, a bench, a Sub0Canvas timing run and a serving engine all use the one GPU and
   the same cores. Adopt the sub0perf workflow (Sub0Math `docs/PERF_LOOP.md`): one verdict line per step, tables in a report file,
   `--out-json`, deterministic metrics gated in every tier, timing in the `local` tier with `needs:quiet-machine`.
