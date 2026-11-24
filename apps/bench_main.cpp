@@ -4,6 +4,7 @@
 // Output follows the sub0perf habit: one verdict line, the records in the --out file (open it only when a line needs it).
 #include "sub0llmengine/contracts/bench_record.hpp"
 #include "sub0llmengine/evidence/http_bench.hpp"
+#include "sub0llmengine/supervision/machine_lease.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -69,6 +70,13 @@ int main(int argc, char** argv)
     {
         std::fprintf(stderr, "usage: sub0engine_bench --port N --model NAME --backend NAME --machine ID --out FILE.jsonl [--depth a,b] [--b a,b] [--ntg N] [--param k=v]...\n");
         return 2;
+    }
+    // The quiet machine, or a sentence naming who holds it (docs/reviews/2026-11-24-family-responsibilities.md D4).
+    auto lease = sub0llmengine::supervision::MachineLease::acquire("sub0engine_bench", "http bench");
+    if (!lease)
+    {
+        std::fprintf(stderr, "%s\n", lease.error().message.c_str());
+        return 3;
     }
     const auto records = evidence::runHttpBench(spec);
     std::ofstream file{out, std::ios::app};

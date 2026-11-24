@@ -2,6 +2,7 @@
 //   sub0engine_fit --bin basalt.exe --pack model.basalt --target 131072 [--port 8092] [--kv fp8] [--log-dir out]
 // Each start loads the model (about a minute), so a run is a few minutes. Stop any server on the port first.
 #include "sub0llmengine/fit/fit.hpp"
+#include "sub0llmengine/supervision/machine_lease.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -42,6 +43,13 @@ int main(int argc, char** argv)
         {"defaults", {}},
         {"drafter-off", {"--vram-reserve-mib", "256", "--spec", "1"}},  // measured: only --spec 1 changes the fit on Inkling; the reserve flag does not
     };
+    // The quiet machine, or a sentence naming who holds it (docs/reviews/2026-11-24-family-responsibilities.md D4).
+    auto lease = sub0llmengine::supervision::MachineLease::acquire("sub0engine_fit", "context search");
+    if (!lease)
+    {
+        std::fprintf(stderr, "%s\n", lease.error().message.c_str());
+        return 3;
+    }
     auto probe = makeBasaltProbe(config);
     const auto result = search(*probe, spec, ladder);
     for (const auto& step : result.steps)
