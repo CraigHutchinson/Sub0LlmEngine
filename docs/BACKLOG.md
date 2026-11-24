@@ -220,6 +220,25 @@ Done (Sub0LlmModelRegistry): model definitions with artifacts per format, vendor
 only on the owner's go-ahead; declared converters with the derivation recorded; Basalt and Strata formats; the engine asks
 for a model by name in the backend's format (docs/backends/registry-integration.md). Open items are listed there.
 
+## Fit search: first-class engine feature (owner, 2026-11-24)
+
+Finding the largest context (and the levers that buy it) that a backend can hold on this card is an engine feature, not a one-off
+session: `sub0llmengine fit --model NAME --backend basalt --target-context N` probes, records and reuses the answer.
+
+- **Probe:** start the backend with a candidate set, read its refusal (Basalt prints `spill plan: ... N MiB short (--max-context C)`),
+  and use the shortfall to step the context: the slope is about 14 KiB per position (Inkling 2 Mini, fp8 KV), so one refusal
+  predicts the next try; bisect only near the edge. A start is a load of ~19 GiB, so predict first, probe sparingly.
+- **Levers, in order:** `--vram-reserve-mib` down to 256, `--spec 1` (drafter off), `--kv` format, then context. Flags are per model
+  (Inkling takes none of `--kv-resident`, `--prefill`, `--mtp-window`): the backend adapter reports which it accepts.
+- **Output:** a fit record per (model file sha, backend version, GPU, free VRAM/RAM) in the evidence store: max context,
+  levers used, shortfall at the next step. The lever/lease model (M4) reads it instead of guessing.
+- **Measured 2026-11-24, RTX 5070 Laptop 8 GB, Inkling 2 Mini DQ8 pack, fp8 KV, Basalt 0.5.6:** 131072 is 1713 MiB short at default
+  reserve, 516 short with reserve 300 and drafter off; 106496 is 132 short at reserve 256; 98304 is 4 MiB short. About 96K tokens
+  fits with every expert in RAM: **>100K does not fit this card with Inkling**; Qwen3.8-27B needs 16 GB. Next: confirm 96K loads,
+  then run a needle check and decode speed with experts on the CPU.
+- A launcher must not trust Basalt's `ready` line: the server prints it before the engine plans weights; wait for `/health` 200
+  *and* a live engine process (the supervision layer's Basalt probe needs this).
+
 ## Parked decisions (resolve at a follow-up; the engine works without them)
 
 - **HTTP/2** (new requirement, add where viable): Beast is HTTP/1.1 only. Cheapest path: nghttp2 behind the `net` seam, h2c
