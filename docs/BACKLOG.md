@@ -243,6 +243,18 @@ session: `sub0llmengine fit --model NAME --backend basalt --target-context N` pr
 - A launcher must not trust Basalt's `ready` line: the server prints it before the engine plans weights; wait for `/health` 200
   *and* a live engine process (the supervision layer's Basalt probe needs this).
 
+## Machine exclusivity and the sub0perf workflow (owner, 2026-11-24; GitHub issue 1)
+
+- Timing runs on this machine must never overlap: a fit, a bench, a Sub0Canvas timing run and a serving engine all use the one GPU and
+  the same cores. Adopt the sub0perf workflow (Sub0Math `docs/PERF_LOOP.md`): one verdict line per step, tables in a report file,
+  `--out-json`, deterministic metrics gated in every tier, timing in the `local` tier with `needs:quiet-machine`.
+- One lock for the machine, not one per tool: the Python `out/bench.lock` and the C++ fit and bench tools take the same lock (a file
+  with owner, pid and start time; a stale owner is detected by pid), and the engine refuses to start a server while a run holds it.
+  Today `sub0engine_fit` and `sub0engine_bench` take none: parked until the lock format is agreed with sub0perf.
+- Issue 1 items this work touches: the bench needs streaming replies for exact time-to-first-token (the HTTP seam has none: offer SSE
+  to the Fabric interface before it freezes); the bench follows the one-verdict-line output habit; test labels already use
+  `smoke | full | local`, `area:`, `needs:`.
+
 ## Parked decisions (resolve at a follow-up; the engine works without them)
 
 - **HTTP/2** (new requirement, add where viable): Beast is HTTP/1.1 only. Cheapest path: nghttp2 behind the `net` seam, h2c
