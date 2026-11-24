@@ -50,7 +50,7 @@ struct SearchSpec
     std::int64_t granularity = 1024;        // answers are multiples of this
     std::int64_t minContext = 4096;         // below this a step is given up
     int maxProbesPerStep = 8;
-    double mibPerPosition = 14.0 / 1024.0;  // first guess of the slope; two refusals replace it
+    double mibPerPosition = 24.0 / 1024.0;  // first guess of the slope, deliberately high (a low guess overshoots far down); two refusals replace it
 };
 
 struct StepResult

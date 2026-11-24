@@ -40,8 +40,7 @@ int main(int argc, char** argv)
     // Cheapest first; each step replaces the one before. Flags are Inkling's: other models take other levers (the adapter will say which).
     const std::vector<LeverStep> ladder = {
         {"defaults", {}},
-        {"reserve-256", {"--vram-reserve-mib", "256"}},
-        {"reserve-256+drafter-off", {"--vram-reserve-mib", "256", "--spec", "1"}},
+        {"drafter-off", {"--vram-reserve-mib", "256", "--spec", "1"}},  // measured: only --spec 1 changes the fit on Inkling; the reserve flag does not
     };
     auto probe = makeBasaltProbe(config);
     const auto result = search(*probe, spec, ladder);

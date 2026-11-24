@@ -236,6 +236,10 @@ session: `sub0llmengine fit --model NAME --backend basalt --target-context N` pr
   reserve, 516 short with reserve 300 and drafter off; 106496 is 132 short at reserve 256; 98304 is 4 MiB short. About 96K tokens
   fits with every expert in RAM: **>100K does not fit this card with Inkling**; Qwen3.8-27B needs 16 GB. Next: confirm 96K loads,
   then run a needle check and decode speed with experts on the CPU.
+- **`sub0engine_fit` run (same machine, target 131072):** defaults reach 43,008 tokens (about 20 KiB a position); drafter off reaches
+  **97,280** (confirmed by hand at 94,208; 98,304 is 4 MiB short). `--vram-reserve-mib` changes nothing on this pack. The first slope
+  guess of 14 KiB overshot to 5,120 on the defaults step, so the guess is now 24 KiB. Still to do: write the fit record, and pick lever
+  flags per backend and model.
 - A launcher must not trust Basalt's `ready` line: the server prints it before the engine plans weights; wait for `/health` 200
   *and* a live engine process (the supervision layer's Basalt probe needs this).
 
