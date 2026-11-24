@@ -79,6 +79,11 @@ int main(int argc, char** argv)
         return 3;
     }
     const auto records = evidence::runHttpBench(spec);
+    if (records.empty())
+    {
+        std::fprintf(stderr, "bench: FAIL nothing answers on %s:%d; no records written\n", spec.host.c_str(), static_cast<int>(spec.port));
+        return 1;
+    }
     std::ofstream file{out, std::ios::app};
     int ok = 0;
     for (const auto& r : records)

@@ -15,6 +15,7 @@ int main(int argc, char** argv)
     BasaltProbeConfig config;
     config.logDir = "out";
     std::string kv = "fp8";
+    std::string parallel = "1";
     SearchSpec spec;
     for (int i = 1; i + 1 < argc; i += 2)
     {
@@ -25,6 +26,7 @@ int main(int argc, char** argv)
         else if (flag == "--port") config.port = static_cast<std::uint16_t>(std::atoi(value.c_str()));
         else if (flag == "--target") spec.target = std::atoll(value.c_str());
         else if (flag == "--kv") kv = value;
+        else if (flag == "--parallel") parallel = value;
         else if (flag == "--log-dir") config.logDir = value;
         else
         {
@@ -34,10 +36,10 @@ int main(int argc, char** argv)
     }
     if (config.bin.empty() || config.pack.empty() || spec.target <= 0)
     {
-        std::fprintf(stderr, "usage: sub0engine_fit --bin BASALT --pack FILE.basalt --target TOKENS [--port N] [--kv fp8] [--log-dir DIR]\n");
+        std::fprintf(stderr, "usage: sub0engine_fit --bin BASALT --pack FILE.basalt --target TOKENS [--port N] [--kv fp8] [--parallel N] [--log-dir DIR]\n");
         return 2;
     }
-    config.baseArgs = {"--kv", kv};
+    config.baseArgs = {"--kv", kv, "--parallel", parallel};
     // Cheapest first; each step replaces the one before. Flags are Inkling's: other models take other levers (the adapter will say which).
     const std::vector<LeverStep> ladder = {
         {"defaults", {}},

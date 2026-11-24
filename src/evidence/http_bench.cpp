@@ -136,7 +136,12 @@ std::vector<contracts::BenchRecord> runHttpBench(const HttpBenchSpec& spec)
     // How many tokens a word costs on this server's tokenizer: one small request, so a long prompt lands near its depth.
     double tokensPerWord = 1.3;
     constexpr std::int64_t calibrationWords = 256;
-    if (const auto probe = runPass(spec, spec.seed + 7919, calibrationWords, 1, 1); probe.ok && probe.promptTokens > 0)
+    const auto probe = runPass(spec, spec.seed + 7919, calibrationWords, 1, 1);
+    if (!probe.ok && probe.error.starts_with("http request to"))
+    {
+        return records;  // nothing is listening: no point to record, and an error row would pollute the history
+    }
+    if (probe.ok && probe.promptTokens > 0)
     {
         tokensPerWord = static_cast<double>(probe.promptTokens) / static_cast<double>(calibrationWords);
     }
