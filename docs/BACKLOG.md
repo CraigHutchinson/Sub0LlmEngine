@@ -252,10 +252,14 @@ Decided in the family review: [reviews/2026-11-24-family-responsibilities.md](re
   `--out-json`, deterministic metrics gated in every tier, timing in the `local` tier with `needs:quiet-machine`.
 - One lock for the machine, not one per tool: the Python `out/bench.lock` and the C++ fit and bench tools take the same lock (a file
   with owner, pid and start time; a stale owner is detected by pid), and the engine refuses to start a server while a run holds it.
-  Today `sub0engine_fit` and `sub0engine_bench` take none: parked until the lock format is agreed with sub0perf.
+  `sub0engine_fit` and `sub0engine_bench` now take it (`supervision/machine_lease`, owner record keyed like sub0perf's); serving does not yet (needs a shared mode in Sub0Platform, issue 2 there).
 - Issue 1 items this work touches: the bench needs streaming replies for exact time-to-first-token (the HTTP seam has none: offer SSE
   to the Fabric interface before it freezes); the bench follows the one-verdict-line output habit; test labels already use
   `smoke | full | local`, `area:`, `needs:`.
+
+## Open follow-ups (paused 2026-11-24)
+
+Everything left from the Basalt, fit, bench and family-review work is listed in [sessions/basalt-engine-start-and-followups.md](sessions/basalt-engine-start-and-followups.md); the `start` command is on branch `wip/engine-start` (issue 4), Basalt 0.5.7 is issue 5.
 
 ## Parked decisions (resolve at a follow-up; the engine works without them)
 

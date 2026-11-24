@@ -86,7 +86,7 @@ W1 and W2 touch disjoint engine directories (`evidence`, `fit`, `apps`, tools ag
 
 | Wave | State |
 |---|---|
-| W1 | plan approved (owner, 2026-11-24, with the three recommendations in section 6). Engine side written, not yet built or tested: `supervision/machine_lease` on Platform's `FileLock` (exclusive only; the shared mode for serving needs a Platform primitive, not requested yet), taken by `sub0engine_fit` and `sub0engine_bench`. Waiting for the quiet machine before building. |
+| W1 | engine side built, tested and pushed: `supervision/machine_lease` on Platform's `FileLock` (exclusive only), taken by `sub0engine_fit` and `sub0engine_bench`. Open: the shared mode for serving needs a Platform primitive (Sub0Platform#2); `Serve-Basalt.ps1` still takes no lease; Squad and Math adoption are their own sessions. Paused 2026-11-24; see [the handover](../sessions/basalt-engine-start-and-followups.md). |
 | W2 | not started |
 | W3 | not started |
 | W4 | not started |

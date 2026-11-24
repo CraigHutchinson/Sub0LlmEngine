@@ -46,6 +46,7 @@ machine, no commits without the owner's go-ahead, one GPU job at a time>
 | Brief | Task | Written |
 |---|---|---|
 | [qwen38-27b-cuda-isolation.md](qwen38-27b-cuda-isolation.md) | Isolate the Qwen3.8-27B UD-IQ3_XXS CUDA fault (which kernel, type and shape) | 2026-11-16 |
+| [basalt-engine-start-and-followups.md](basalt-engine-start-and-followups.md) | Engine `start` command, Basalt 0.5.7 comparison, open measurements and follow-ups | 2026-11-24 |
 
 Elsewhere: Sub0Squad's [docs/sessions/](https://github.com/CraigHutchinson/Sub0Squad/tree/main/docs/sessions) has the
 brief for integrating this engine and the model registry into the squad.
