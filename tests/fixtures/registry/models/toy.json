@@ -1,0 +1,67 @@
+{
+  "name": "toy",
+  "title": "Toy model for the registry fixture",
+  "artifacts": [
+    {
+      "format": "gguf",
+      "vendor": "unsloth",
+      "variant": "Q8",
+      "source": "hf:org/toy-GGUF#toy-Q8.gguf"
+    },
+    {
+      "format": "gguf",
+      "vendor": "unsloth",
+      "variant": "Q4",
+      "source": "hf:org/toy-GGUF#toy-Q4.gguf"
+    },
+    {
+      "format": "gguf",
+      "vendor": "local",
+      "variant": "Tuned",
+      "converter": "tune",
+      "from": {
+        "format": "gguf",
+        "variant": "Q8"
+      }
+    },
+    {
+      "format": "gguf",
+      "vendor": "org",
+      "variant": "Split",
+      "source": "hf:org/split-GGUF#split-0000[12]-of-00002.gguf"
+    },
+    {
+      "format": "basalt",
+      "vendor": "jesdga",
+      "variant": "P1",
+      "source": "hf:org/toy-Basalt#*.basalt"
+    },
+    {
+      "format": "strata",
+      "vendor": "strata-engine",
+      "variant": "SQ",
+      "source": [
+        "hf:org/toy-Strata#toy-SQ.strata",
+        "hf:org/toy-Strata#toy-Vision.strata"
+      ]
+    },
+    {
+      "format": "strata",
+      "vendor": "strata-engine",
+      "variant": "SQ2",
+      "source": [
+        "hf:org/toy-Strata#toy-SQ.strata",
+        "hf:org/toy-Strata#toy-Missing.strata"
+      ]
+    },
+    {
+      "format": "other",
+      "vendor": "x",
+      "variant": "conv",
+      "converter": "fake",
+      "from": {
+        "format": "gguf"
+      }
+    }
+  ]
+}

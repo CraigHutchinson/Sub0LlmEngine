@@ -1,0 +1,226 @@
+{
+  "format": "sub0llm-model-registry",
+  "version": 1,
+  "generated": "2026-11-24T00:00:00",
+  "root": "<root>",
+  "aliases": {
+    "toy": "hf/org/toy-GGUF@abc123def456#toy-Q8.gguf",
+    "split": "hf/org/split-GGUF@d3d3d3d3d3d3",
+    "vis": "hf/org/vis-GGUF@e4e4e4e4e4e4",
+    "multi": "hf/org/multi-GGUF@f5f5f5f5f5f5",
+    "gone": "hf/org/gone-GGUF@a6a6a6a6a6a6"
+  },
+  "entries": {
+    "hf/org/gone-GGUF@a6a6a6a6a6a6": {
+      "schema": "sub0llm-model-registry/manifest/1",
+      "id": "hf/org/gone-GGUF@a6a6a6a6a6a6",
+      "format": "gguf",
+      "files": [
+        {
+          "name": "gone.gguf",
+          "bytes": 1,
+          "sha256": null,
+          "role": "model"
+        }
+      ],
+      "source": {
+        "provider": "hf",
+        "repo": "org/gone-GGUF",
+        "revision": "a6a6a6a6a6a6"
+      },
+      "derivedFrom": null,
+      "tool": null,
+      "created": "2026-11-24",
+      "notes": "",
+      "evicted": {
+        "at": "2026-11-24T00:00:00",
+        "bytes": 1
+      },
+      "dir": "hf/org/gone-GGUF/a6a6a6a6a6a6"
+    },
+    "hf/org/multi-GGUF@f5f5f5f5f5f5": {
+      "schema": "sub0llm-model-registry/manifest/1",
+      "id": "hf/org/multi-GGUF@f5f5f5f5f5f5",
+      "format": "gguf",
+      "files": [
+        {
+          "name": "a.gguf",
+          "bytes": 1,
+          "sha256": null,
+          "role": "model"
+        },
+        {
+          "name": "b.gguf",
+          "bytes": 1,
+          "sha256": null,
+          "role": "model"
+        }
+      ],
+      "source": {
+        "provider": "hf",
+        "repo": "org/multi-GGUF",
+        "revision": "f5f5f5f5f5f5"
+      },
+      "derivedFrom": null,
+      "tool": null,
+      "created": "2026-11-24",
+      "notes": "",
+      "dir": "hf/org/multi-GGUF/f5f5f5f5f5f5"
+    },
+    "hf/org/split-GGUF@d3d3d3d3d3d3": {
+      "schema": "sub0llm-model-registry/manifest/1",
+      "id": "hf/org/split-GGUF@d3d3d3d3d3d3",
+      "format": "gguf",
+      "files": [
+        {
+          "name": "split-00001-of-00002.gguf",
+          "bytes": 1,
+          "sha256": null,
+          "role": "model"
+        },
+        {
+          "name": "split-00002-of-00002.gguf",
+          "bytes": 1,
+          "sha256": null,
+          "role": "shard"
+        }
+      ],
+      "source": {
+        "provider": "hf",
+        "repo": "org/split-GGUF",
+        "revision": "d3d3d3d3d3d3"
+      },
+      "derivedFrom": null,
+      "tool": null,
+      "created": "2026-11-24",
+      "notes": "",
+      "dir": "hf/org/split-GGUF/d3d3d3d3d3d3"
+    },
+    "hf/org/toy-Basalt@b1b1b1b1b1b1": {
+      "schema": "sub0llm-model-registry/manifest/1",
+      "id": "hf/org/toy-Basalt@b1b1b1b1b1b1",
+      "format": "basalt",
+      "files": [
+        {
+          "name": "toy.basalt",
+          "bytes": 1,
+          "sha256": null,
+          "role": "model"
+        }
+      ],
+      "source": {
+        "provider": "hf",
+        "repo": "org/toy-Basalt",
+        "revision": "b1b1b1b1b1b1"
+      },
+      "derivedFrom": null,
+      "tool": null,
+      "created": "2026-11-24",
+      "notes": "",
+      "dir": "hf/org/toy-Basalt/b1b1b1b1b1b1"
+    },
+    "hf/org/toy-GGUF@abc123def456": {
+      "schema": "sub0llm-model-registry/manifest/1",
+      "id": "hf/org/toy-GGUF@abc123def456",
+      "format": "gguf",
+      "files": [
+        {
+          "name": "toy-Q8.gguf",
+          "bytes": 1,
+          "sha256": null,
+          "role": "model"
+        }
+      ],
+      "source": {
+        "provider": "hf",
+        "repo": "org/toy-GGUF",
+        "revision": "abc123def456"
+      },
+      "derivedFrom": null,
+      "tool": null,
+      "created": "2026-11-24",
+      "notes": "",
+      "dir": "hf/org/toy-GGUF/abc123def456"
+    },
+    "hf/org/toy-Strata@c2c2c2c2c2c2": {
+      "schema": "sub0llm-model-registry/manifest/1",
+      "id": "hf/org/toy-Strata@c2c2c2c2c2c2",
+      "format": "strata",
+      "files": [
+        {
+          "name": "toy-SQ.strata",
+          "bytes": 1,
+          "sha256": null,
+          "role": "model"
+        },
+        {
+          "name": "toy-Vision.strata",
+          "bytes": 1,
+          "sha256": null,
+          "role": "mmproj"
+        }
+      ],
+      "source": {
+        "provider": "hf",
+        "repo": "org/toy-Strata",
+        "revision": "c2c2c2c2c2c2"
+      },
+      "derivedFrom": null,
+      "tool": null,
+      "created": "2026-11-24",
+      "notes": "",
+      "dir": "hf/org/toy-Strata/c2c2c2c2c2c2"
+    },
+    "hf/org/vis-GGUF@e4e4e4e4e4e4": {
+      "schema": "sub0llm-model-registry/manifest/1",
+      "id": "hf/org/vis-GGUF@e4e4e4e4e4e4",
+      "format": "gguf",
+      "files": [
+        {
+          "name": "mmproj.gguf",
+          "bytes": 1,
+          "sha256": null,
+          "role": "mmproj"
+        },
+        {
+          "name": "vis-Q4.gguf",
+          "bytes": 1,
+          "sha256": null,
+          "role": "model"
+        }
+      ],
+      "source": {
+        "provider": "hf",
+        "repo": "org/vis-GGUF",
+        "revision": "e4e4e4e4e4e4"
+      },
+      "derivedFrom": null,
+      "tool": null,
+      "created": "2026-11-24",
+      "notes": "",
+      "dir": "hf/org/vis-GGUF/e4e4e4e4e4e4"
+    },
+    "local/toy/Tuned@20261124": {
+      "schema": "sub0llm-model-registry/manifest/1",
+      "id": "local/toy/Tuned@20261124",
+      "format": "gguf",
+      "files": [
+        {
+          "name": "tuned.gguf",
+          "bytes": 1,
+          "sha256": null,
+          "role": "model"
+        }
+      ],
+      "source": null,
+      "derivedFrom": "hf/org/toy-GGUF@abc123def456",
+      "tool": null,
+      "created": "2026-11-24",
+      "notes": "",
+      "model": "toy",
+      "variant": "Tuned",
+      "vendor": "local",
+      "dir": "local/toy/Tuned/20261124"
+    }
+  }
+}

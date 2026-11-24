@@ -1,0 +1,260 @@
+{
+  "resolve": [
+    {
+      "ref": "toy",
+      "ok": true,
+      "path": "hf/org/toy-GGUF/abc123def456/toy-Q8.gguf",
+      "id": "hf/org/toy-GGUF@abc123def456#toy-Q8.gguf"
+    },
+    {
+      "ref": "hf/org/toy-GGUF@abc123def456",
+      "ok": true,
+      "path": "hf/org/toy-GGUF/abc123def456/toy-Q8.gguf",
+      "id": "hf/org/toy-GGUF@abc123def456#toy-Q8.gguf"
+    },
+    {
+      "ref": "hf/org/toy-GGUF@abc123def456#toy-Q8.gguf",
+      "ok": true,
+      "path": "hf/org/toy-GGUF/abc123def456/toy-Q8.gguf",
+      "id": "hf/org/toy-GGUF@abc123def456#toy-Q8.gguf"
+    },
+    {
+      "ref": "split",
+      "ok": true,
+      "path": "hf/org/split-GGUF/d3d3d3d3d3d3/split-00001-of-00002.gguf",
+      "id": "hf/org/split-GGUF@d3d3d3d3d3d3#split-00001-of-00002.gguf"
+    },
+    {
+      "ref": "vis",
+      "ok": true,
+      "path": "hf/org/vis-GGUF/e4e4e4e4e4e4/vis-Q4.gguf",
+      "id": "hf/org/vis-GGUF@e4e4e4e4e4e4#vis-Q4.gguf"
+    },
+    {
+      "ref": "multi",
+      "ok": false,
+      "kind": "ambiguous"
+    },
+    {
+      "ref": "hf/org/multi-GGUF@f5f5f5f5f5f5#b.gguf",
+      "ok": true,
+      "path": "hf/org/multi-GGUF/f5f5f5f5f5f5/b.gguf",
+      "id": "hf/org/multi-GGUF@f5f5f5f5f5f5#b.gguf"
+    },
+    {
+      "ref": "gone",
+      "ok": false,
+      "kind": "evicted"
+    },
+    {
+      "ref": "no-such-alias",
+      "ok": false,
+      "kind": "unknown"
+    },
+    {
+      "ref": "hf/org/none@000000000000",
+      "ok": false,
+      "kind": "unknown"
+    }
+  ],
+  "artifacts": {
+    "toy": [
+      {
+        "format": "gguf",
+        "variant": "Q8",
+        "state": "present",
+        "id": "hf/org/toy-GGUF@abc123def456"
+      },
+      {
+        "format": "gguf",
+        "variant": "Q4",
+        "state": "available",
+        "id": ""
+      },
+      {
+        "format": "gguf",
+        "variant": "Tuned",
+        "state": "present",
+        "id": "local/toy/Tuned@20261124"
+      },
+      {
+        "format": "gguf",
+        "variant": "Split",
+        "state": "present",
+        "id": "hf/org/split-GGUF@d3d3d3d3d3d3"
+      },
+      {
+        "format": "basalt",
+        "variant": "P1",
+        "state": "present",
+        "id": "hf/org/toy-Basalt@b1b1b1b1b1b1"
+      },
+      {
+        "format": "strata",
+        "variant": "SQ",
+        "state": "present",
+        "id": "hf/org/toy-Strata@c2c2c2c2c2c2"
+      },
+      {
+        "format": "strata",
+        "variant": "SQ2",
+        "state": "available",
+        "id": ""
+      },
+      {
+        "format": "other",
+        "variant": "conv",
+        "state": "unavailable",
+        "id": ""
+      }
+    ],
+    "gone": [
+      {
+        "format": "gguf",
+        "variant": "Q4",
+        "state": "evicted",
+        "id": "hf/org/gone-GGUF@a6a6a6a6a6a6"
+      }
+    ]
+  },
+  "requests": [
+    {
+      "model": "toy",
+      "formats": [
+        "basalt",
+        "gguf"
+      ],
+      "variant": "",
+      "vendor": "",
+      "ok": true,
+      "path": "hf/org/toy-Basalt/b1b1b1b1b1b1/toy.basalt",
+      "id": "hf/org/toy-Basalt@b1b1b1b1b1b1#toy.basalt"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "gguf"
+      ],
+      "variant": "",
+      "vendor": "",
+      "ok": true,
+      "path": "hf/org/toy-GGUF/abc123def456/toy-Q8.gguf",
+      "id": "hf/org/toy-GGUF@abc123def456#toy-Q8.gguf"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "gguf"
+      ],
+      "variant": "Q4",
+      "vendor": "",
+      "ok": false,
+      "kind": "unavailable"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "gguf"
+      ],
+      "variant": "Tuned",
+      "vendor": "",
+      "ok": true,
+      "path": "local/toy/Tuned/20261124/tuned.gguf",
+      "id": "local/toy/Tuned@20261124#tuned.gguf"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "gguf"
+      ],
+      "variant": "Split",
+      "vendor": "",
+      "ok": true,
+      "path": "hf/org/split-GGUF/d3d3d3d3d3d3/split-00001-of-00002.gguf",
+      "id": "hf/org/split-GGUF@d3d3d3d3d3d3#split-00001-of-00002.gguf"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "strata"
+      ],
+      "variant": "",
+      "vendor": "",
+      "ok": true,
+      "path": "hf/org/toy-Strata/c2c2c2c2c2c2/toy-SQ.strata",
+      "id": "hf/org/toy-Strata@c2c2c2c2c2c2#toy-SQ.strata"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "strata"
+      ],
+      "variant": "SQ2",
+      "vendor": "",
+      "ok": false,
+      "kind": "unavailable"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "other"
+      ],
+      "variant": "",
+      "vendor": "",
+      "ok": false,
+      "kind": "unavailable"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "onnx"
+      ],
+      "variant": "",
+      "vendor": "",
+      "ok": false,
+      "kind": "unavailable"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "gguf"
+      ],
+      "variant": "",
+      "vendor": "nobody",
+      "ok": false,
+      "kind": "unavailable"
+    },
+    {
+      "model": "toy",
+      "formats": [
+        "strata",
+        "gguf"
+      ],
+      "variant": "",
+      "vendor": "",
+      "ok": true,
+      "path": "hf/org/toy-Strata/c2c2c2c2c2c2/toy-SQ.strata",
+      "id": "hf/org/toy-Strata@c2c2c2c2c2c2#toy-SQ.strata"
+    },
+    {
+      "model": "nope",
+      "formats": [
+        "gguf"
+      ],
+      "variant": "",
+      "vendor": "",
+      "ok": false,
+      "kind": "unknown"
+    },
+    {
+      "model": "gone",
+      "formats": [
+        "gguf"
+      ],
+      "variant": "",
+      "vendor": "",
+      "ok": false,
+      "kind": "unavailable"
+    }
+  ]
+}

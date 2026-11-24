@@ -1,0 +1,11 @@
+{
+  "name": "gone",
+  "artifacts": [
+    {
+      "format": "gguf",
+      "vendor": "org",
+      "variant": "Q4",
+      "source": "hf:org/gone-GGUF#gone.gguf"
+    }
+  ]
+}
