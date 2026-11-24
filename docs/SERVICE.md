@@ -67,8 +67,12 @@ HTTP and JSON-writer choices; whether the tuning page is served by the service; 
   `bench/<machine>.jsonl` and is logged with drift warnings, never gated on throughput; the GPU runs only with `SUB0PERF_GPU=1`.
 * **Boost:** the CMake-enabled release tarball with only Beast, `BOOST_*_SEPARATE_COMPILATION`, SYSTEM includes.
 
-Scaffold status: step 1 is done (CMake, CPM, Version.cmake, presets, layer chain, label rules, one smoke test, CI smoke).
-Next: Sub0Platform and the `net` layer, then contracts with shared fixtures.
+Status (2026-11-24), each step tested on Windows and Linux with the fixtures the Python reference writes (`tools/write_fixtures.py`):
+done: scaffold and CI smoke; Sub0Platform; `net` (Beast front and client); contracts (bench records, llama.cpp / Strata / Basalt config
+and registry files); llama.cpp, Strata and Basalt command builders; the registry client (resolve, artifact states, request by
+format); supervision (start, readiness, crash detection, stop of the whole process tree). Next: the `sub0llmengine` command line as the
+composition root (config layers, `command`, `start`, `status`, `stop`, the `engine.v1` record), then the evidence selector and the
+lever request and lease model.
 
 ## Prior Sub0 decisions checked (2026-11-23, Haiku survey of the sibling repositories)
 
