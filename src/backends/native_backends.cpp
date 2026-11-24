@@ -23,6 +23,21 @@ std::vector<std::string> basaltServerCommand(const contracts::BasaltConfig& c)
     return {c.basaltBin, "serve", "--config", c.basaltConfig};
 }
 
+std::vector<std::string> basaltPackCommand(const BasaltServe& c)
+{
+    std::vector<std::string> argv{c.bin, "serve", "--model", c.pack, "--host", c.host, "--port", std::to_string(c.port)};
+    const auto flag = [&](const char* name, const std::string& value) {
+        argv.emplace_back(name);
+        argv.push_back(value);
+    };
+    if (!c.alias.empty()) flag("--alias", c.alias);
+    if (c.maxContext) flag("--max-context", std::to_string(*c.maxContext));
+    if (!c.kv.empty()) flag("--kv", c.kv);
+    if (c.parallel) flag("--parallel", std::to_string(*c.parallel));
+    argv.insert(argv.end(), c.extra.begin(), c.extra.end());
+    return argv;
+}
+
 std::string quoteWindowsArgument(const std::string& arg)
 {
     const bool needQuotes = arg.empty() || arg.find_first_of(" \t") != std::string::npos;

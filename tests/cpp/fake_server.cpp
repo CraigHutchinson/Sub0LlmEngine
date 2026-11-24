@@ -1,9 +1,11 @@
 // A stand-in for a backend server, used by the supervision tests: answers /health with 503 while "loading" and 200 afterwards, and /v1/models.
-//   fake_server --port N [--loading-ms M] [--exit-after-ms E]
-// It runs until it is stopped; --exit-after-ms makes it exit by itself with code 3 (a crash during start-up).
+//   fake_server --port N [--loading-ms M] [--exit-after-ms E] [--refuse-short MIB]
+// It runs until it is stopped; --exit-after-ms makes it exit by itself with code 3 (a crash during start-up). Like Basalt it prints
+// "weights  loaded, ctx=N" on stdout once loaded; --refuse-short prints Basalt's spill-plan refusal and exits with code 2 instead.
 #include "sub0llmengine/net/http.hpp"
 
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <thread>
@@ -14,11 +16,19 @@ int main(int argc, char** argv)
     std::uint16_t port = 0;
     long loadingMs = 0;
     long exitAfterMs = -1;
+    long refuseShort = -1;
     for (int i = 1; i + 1 < argc; i += 2)
     {
         if (!std::strcmp(argv[i], "--port")) port = static_cast<std::uint16_t>(std::atoi(argv[i + 1]));
         else if (!std::strcmp(argv[i], "--loading-ms")) loadingMs = std::atol(argv[i + 1]);
         else if (!std::strcmp(argv[i], "--exit-after-ms")) exitAfterMs = std::atol(argv[i + 1]);
+        else if (!std::strcmp(argv[i], "--refuse-short")) refuseShort = std::atol(argv[i + 1]);
+    }
+    if (refuseShort >= 0)
+    {
+        std::printf("[server] error: fake: spill plan: even with every expert in RAM the card is %ld MiB short (--max-context 1)\n", refuseShort);
+        std::fflush(stdout);
+        return 2;
     }
     const auto started = std::chrono::steady_clock::now();
     auto front = makeHttpFront();
@@ -38,9 +48,16 @@ int main(int argc, char** argv)
     {
         return 2;
     }
+    bool announced = false;
     for (;;)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds{50});
+        if (!announced && std::chrono::steady_clock::now() - started >= std::chrono::milliseconds{loadingMs})
+        {
+            std::printf("[server] weights  loaded, ctx=1024 images=off\n");
+            std::fflush(stdout);
+            announced = true;
+        }
         if (exitAfterMs >= 0 && std::chrono::steady_clock::now() - started >= std::chrono::milliseconds{exitAfterMs})
         {
             return 3;
