@@ -11,7 +11,7 @@
 include_guard(GLOBAL)
 
 set(SUB0ENGINE_TEST_TIERS smoke full local)
-set(SUB0ENGINE_TEST_AREAS structure platform net contracts evidence backends supervision registry control service reference tooling)
+set(SUB0ENGINE_TEST_AREAS structure platform net contracts evidence backends supervision fit registry control service reference tooling)
 set(SUB0ENGINE_TEST_NEEDS gpu backend network admin)
 
 # sub0engine_label_tests(AREA x TIER t [NEEDS gpu ...] [SLOW] TARGETS name...)

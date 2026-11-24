@@ -12,7 +12,7 @@ Every ctest test has exactly one **tier** and one **area**, and any **needs**; c
 | tier | `smoke` | fast, no hardware: CI on every push |
 | | `full` | long suites: CI at tags, `ci:full`, weekly |
 | | `local` | needs this machine; never scheduled by CI |
-| `area:<name>` | structure platform net contracts evidence backends supervision registry control service reference tooling | the layer or concern covered |
+| `area:<name>` | structure platform net contracts evidence backends supervision fit registry control service reference tooling | the layer or concern covered |
 | `needs:<x>` | gpu backend network admin | any needs forces tier `local`; `needs:gpu` takes the `gpu` resource lock |
 | `cost:slow` | | a long test inside its tier |
 

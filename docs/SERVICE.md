@@ -33,6 +33,7 @@ Python package stays as the reference until the service passes the same tests.
 3. **evidence**: bench history reader/writer and the selector (measured points, filters, ranking), pure and testable.
 4. **backends**: adapters (llama.cpp, Strata, Basalt, later Sub0Llm): command lines, `modelFormats()`, knobs, health.
 5. **supervision**: one process per instance, readiness, clean stop (child included), the GPU lock, owner allowances.
+5b. **fit**: finds the largest context a backend loads on this machine (a refusal's shortfall predicts the next try; levers by cost), `apps/fit_main.cpp` is its tool (`sub0engine_fit`).
 6. **registry client**: reads `registry.json` and the model definitions, asks for a model by name and format; never
    fetches (the owner runs the registry's `request --fetch`).
 7. **control**: lever requests and leases, the admission and adapt policy, status and pool watermark.
@@ -70,7 +71,7 @@ HTTP and JSON-writer choices; whether the tuning page is served by the service; 
 Status (2026-11-24), each step tested on Windows and Linux with the fixtures the Python reference writes (`tools/write_fixtures.py`):
 done: scaffold and CI smoke; Sub0Platform; `net` (Beast front and client); contracts (bench records, llama.cpp / Strata / Basalt config
 and registry files); llama.cpp, Strata and Basalt command builders; the registry client (resolve, artifact states, request by
-format); supervision (start, readiness, crash detection, stop of the whole process tree). Next: the `sub0llmengine` command line as the
+format); supervision (start, readiness, crash detection, stop of the whole process tree); fit (context search for Basalt, tool `sub0engine_fit`). Next: the `sub0llmengine` command line as the
 composition root (config layers, `command`, `start`, `status`, `stop`, the `engine.v1` record), then the evidence selector and the
 lever request and lease model.
 
